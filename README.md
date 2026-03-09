@@ -1,4 +1,4 @@
-# Phoenix Lab — LLM Observability avec Docker
+# Phoenix Lab : LLM Observability avec Docker
 
 Pipeline RAG sécurité LLM instrumenté avec Arize Phoenix.
 Tout tourne localement avec Docker Compose.
