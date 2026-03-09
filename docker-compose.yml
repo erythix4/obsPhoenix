@@ -1,0 +1,99 @@
+services:
+
+  # ------------------------------------------------
+  # 1. Phoenix -- serveur d'observabilite LLM
+  # ------------------------------------------------
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    container_name: phoenix
+    restart: unless-stopped
+    ports:
+      - "6006:6006"
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - phoenix_data:/mnt/data
+    environment:
+      PHOENIX_WORKING_DIR: /mnt/data
+      PHOENIX_ENABLE_AUTH: "false"
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:6006')"]
+      interval: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+
+  # ------------------------------------------------
+  # 2. Ollama -- LLM local (zero OpenAI)
+  # ------------------------------------------------
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  # ------------------------------------------------
+  # 3. RAG Demo -- pipeline securite LLM
+  # ------------------------------------------------
+  rag-demo:
+    build:
+      context: .
+      dockerfile: Dockerfile.rag
+    container_name: rag-demo
+    restart: unless-stopped
+    depends_on:
+      phoenix:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    environment:
+      PHOENIX_COLLECTOR_ENDPOINT: http://phoenix:4318
+      PHOENIX_BASE_URL:           http://phoenix:6006
+      PHOENIX_PROJECT_NAME:       rag-security-lab
+      EMBEDDING_PROVIDER:         local
+      LLM_PROVIDER:               ollama
+      OLLAMA_BASE_URL:            http://ollama:11434
+      OLLAMA_MODEL:               ${OLLAMA_MODEL:-llama3.2}
+      PYTHONDONTWRITEBYTECODE:    "1"
+    volumes:
+      - ./docs:/app/docs:ro
+      - ./src:/app/src:ro
+      - rag_cache:/app/.cache
+    command: ["python", "/app/src/run_demo.py", "--mode", "server"]
+    ports:
+      - "8080:8080"
+    deploy:
+      resources:
+        limits:
+          memory: 1500M
+
+  # ------------------------------------------------
+  # 4. Lab UI
+  # ------------------------------------------------
+  lab-ui:
+    image: nginx:alpine
+    container_name: lab-ui
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    volumes:
+      - ./nginx/lab.html:/usr/share/nginx/html/index.html:ro
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - phoenix
+      - rag-demo
+
+volumes:
+  phoenix_data:
+  ollama_data:
+  rag_cache:

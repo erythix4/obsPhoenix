@@ -1,0 +1,22 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY src/ ./src/
+COPY docs/ ./docs/
+
+RUN mkdir -p /app/.cache/chroma
+
+EXPOSE 8080
+
+# Utiliser le chemin absolu + PYTHONPATH pour garantir les imports
+ENV PYTHONPATH=/app/src
+
+CMD ["python", "/app/src/run_demo.py", "--mode", "server"]

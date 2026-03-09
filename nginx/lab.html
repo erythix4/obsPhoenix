@@ -1,0 +1,1921 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phoenix - LLM Observability Lab</title>
+<style>
+:root {
+  /* Palette bordeaux-rouge-bleu - identité professionnelle */
+  --bg:        #f7f5f2;
+  --surface:   #ffffff;
+  --surface2:  #f2f0ec;
+  --surface3:  #eae7e1;
+  --border:    #dcd8d0;
+  --border2:   #c8c2b8;
+  --text:      #18120e;
+  --text2:     #3d3028;
+  --muted:     #7a6e64;
+
+  /* Bordeaux - couleur principale sidebar/accent foncé */
+  --bord:      #6b1d1d;
+  --bord-l:    #f9f0f0;
+  --bord-m:    #e8c8c8;
+  --bord-d:    #4d1515;
+
+  /* Rouge - accent interactif */
+  --red:       #b91c1c;
+  --red-l:     #fef2f2;
+  --red-m:     #fecaca;
+  --red-d:     #991b1b;
+
+  /* Bleu - info, code, liens */
+  --blue:      #1e3a6e;
+  --blue-l:    #eff4ff;
+  --blue-m:    #bfcfe8;
+  --blue-d:    #15294f;
+
+  /* Secondaires */
+  --teal:      #0f5246;
+  --teal-l:    #f0faf7;
+  --amber:     #78350f;
+  --amber-l:   #fffbeb;
+  --amber-m:   #fde68a;
+  --slate:     #334155;
+  --slate-l:   #f1f5f9;
+
+  --sidebar-w: 248px;
+  --header-h:  56px;
+}
+
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0 }
+html,body { height:100%; overflow:hidden; font-family:Arial,Helvetica,sans-serif; background:var(--bg); color:var(--text); font-size:15px }
+button { font-family:Arial,Helvetica,sans-serif; cursor:pointer }
+code { font-family:'Courier New',Courier,monospace; font-size:.9em; background:var(--surface2); padding:1px 5px; border-radius:3px }
+strong { font-weight:700 }
+em { font-style:italic }
+
+/* ── Layout ── */
+#app { display:flex; height:100vh; overflow:hidden }
+
+/* ── Sidebar ── */
+#sidebar {
+  width:var(--sidebar-w); flex-shrink:0;
+  background:var(--bord-d);
+  display:flex; flex-direction:column; overflow:hidden;
+}
+#sidebar-logo {
+  padding:1.25rem 1.1rem 1.1rem;
+  border-bottom:1px solid rgba(255,255,255,.12);
+  display:flex; align-items:center; gap:.7rem; flex-shrink:0;
+}
+.logo-icon {
+  width:34px; height:34px; background:var(--red); border-radius:6px;
+  display:flex; align-items:center; justify-content:center;
+  font-family:Arial,Helvetica,sans-serif; color:#fff; font-size:17px; font-weight:700;
+  flex-shrink:0; letter-spacing:-.5px;
+}
+.logo-text .l1 { font-family:Arial,Helvetica,sans-serif; font-size:16px; color:#fff; line-height:1; font-weight:500 }
+.logo-text .l2 { font-size:9.5px; color:rgba(255,255,255,.45); letter-spacing:1.4px; text-transform:uppercase; margin-top:3px }
+
+#sidebar-nav { flex:1; overflow-y:auto; padding:.5rem 0 }
+#sidebar-nav::-webkit-scrollbar { width:3px }
+#sidebar-nav::-webkit-scrollbar-thumb { background:rgba(255,255,255,.15); border-radius:2px }
+
+.nav-item {
+  width:100%; text-align:left; padding:.55rem 1.1rem;
+  background:none; border:none; border-left:3px solid transparent;
+  display:flex; align-items:center; gap:.7rem;
+  transition:background .12s, border-color .12s;
+}
+.nav-item:hover { background:rgba(255,255,255,.07) }
+.nav-item.active { background:rgba(255,255,255,.12); border-left-color:#e8c8c8 }
+.nav-num { font-family:'Courier New',Courier,monospace; font-size:9.5px; color:rgba(255,255,255,.35); letter-spacing:.5px }
+.nav-item.active .nav-num { color:rgba(255,255,255,.65) }
+.nav-label { font-size:13px; font-weight:600; color:rgba(255,255,255,.65); line-height:1.25 }
+.nav-item.active .nav-label { color:#fff }
+
+#lang-switcher {
+  padding:.8rem 1.1rem; border-top:1px solid rgba(255,255,255,.12); flex-shrink:0;
+  display:flex; gap:.4rem; align-items:center;
+}
+#lang-switcher span { font-size:10px; color:rgba(255,255,255,.35); font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-right:.2rem }
+.lang-btn {
+  font-size:11px; font-weight:700; padding:.25rem .65rem; border-radius:4px;
+  border:1.5px solid rgba(255,255,255,.2); background:none; color:rgba(255,255,255,.45);
+  cursor:pointer; transition:all .14s; letter-spacing:.4px;
+}
+.lang-btn.active { background:var(--red); border-color:var(--red); color:#fff }
+.lang-btn:not(.active):hover { border-color:rgba(255,255,255,.4); color:rgba(255,255,255,.75) }
+
+#sidebar-footer { padding:.75rem 1.1rem; border-top:1px solid rgba(255,255,255,.12); flex-shrink:0 }
+#sidebar-footer p { font-family:'Courier New',Courier,monospace; font-size:10px; color:rgba(255,255,255,.3); line-height:1.75 }
+
+/* ── Main ── */
+#main { flex:1; display:flex; flex-direction:column; overflow:hidden }
+#topbar {
+  height:var(--header-h); flex-shrink:0;
+  background:var(--surface); border-bottom:2px solid var(--border);
+  display:flex; align-items:center; padding:0 2.25rem; gap:1rem;
+}
+.tb-num { font-family:'Courier New',Courier,monospace; font-size:12px; color:var(--muted); font-weight:600 }
+.tb-title { font-family:Arial,Helvetica,sans-serif; font-size:20px; color:var(--text); font-weight:500 }
+.tb-chips { margin-left:auto; display:flex; gap:.45rem }
+.chip {
+  font-family:'Courier New',Courier,monospace; font-size:10.5px; font-weight:600;
+  padding:3px 9px; border-radius:3px; border:1.5px solid transparent;
+}
+.chip-bord  { background:var(--bord-l);  color:var(--bord);  border-color:var(--bord-m) }
+.chip-blue  { background:var(--blue-l);  color:var(--blue);  border-color:var(--blue-m) }
+.chip-teal  { background:var(--teal-l);  color:var(--teal);  border-color:#99d6c4 }
+
+#content { flex:1; overflow-y:auto; padding:2rem 2.25rem 3.5rem }
+#content::-webkit-scrollbar { width:5px }
+#content::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px }
+
+/* ── Modules ── */
+.module { display:none; animation:fadeIn .22s ease }
+.module.active { display:block }
+@keyframes fadeIn { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:none} }
+
+/* ── Hero ── */
+.m-hero {
+  border-left:5px solid var(--bord); background:var(--surface);
+  border-radius:0 10px 10px 0; padding:2rem 2rem 2rem 1.75rem;
+  margin-bottom:1.75rem; box-shadow:0 1px 12px rgba(107,29,29,.08);
+  position:relative; overflow:hidden;
+}
+.m-hero::after {
+  content:''; position:absolute; top:0; left:0; bottom:0; width:5px;
+  background:linear-gradient(to bottom, var(--bord), var(--red));
+}
+.m-hero-badge {
+  font-size:11px; font-weight:700; color:var(--bord);
+  letter-spacing:2px; text-transform:uppercase; margin-bottom:.75rem;
+  font-family:Arial,Helvetica,sans-serif;
+}
+.m-hero h1 {
+  font-family:Arial,Helvetica,sans-serif; font-size:2.5rem; font-weight:700;
+  color:var(--text); line-height:1.1; margin-bottom:.8rem;
+}
+.m-hero h1 em { font-style:italic; color:var(--bord) }
+.m-hero p { font-size:15px; color:var(--text2); max-width:560px; line-height:1.8 }
+
+/* ── Typography ── */
+h2 {
+  font-family:Arial,Helvetica,sans-serif; font-size:1.65rem; font-weight:700;
+  color:var(--text); margin:2.25rem 0 .6rem; padding-bottom:.5rem;
+  border-bottom:2px solid var(--bord-m);
+}
+h3 {
+  font-family:Arial,Helvetica,sans-serif; font-size:.9rem; font-weight:800;
+  color:var(--bord); margin:1.6rem 0 .55rem;
+  text-transform:uppercase; letter-spacing:1px;
+}
+p.body { font-size:15px; line-height:1.85; color:var(--text2); margin:.55rem 0 }
+
+/* ── Code ── */
+.code-wrap {
+  border-radius:8px; overflow:hidden; border:1.5px solid var(--border);
+  margin:1.25rem 0; box-shadow:0 2px 10px rgba(0,0,0,.05);
+}
+.code-header {
+  background:var(--surface2); border-bottom:1.5px solid var(--border);
+  padding:.5rem 1.1rem; display:flex; justify-content:space-between; align-items:center;
+}
+.code-title {
+  font-family:Arial,Helvetica,sans-serif; font-size:11px; font-weight:700;
+  color:var(--muted); letter-spacing:.9px; text-transform:uppercase;
+}
+.copy-btn {
+  background:none; border:1.5px solid var(--border); font-size:11px;
+  font-weight:700; color:var(--muted); padding:2px 10px; border-radius:4px;
+  transition:all .17s; cursor:pointer;
+}
+.copy-btn:hover { background:var(--surface); color:var(--text); border-color:var(--border2) }
+.copy-btn.ok { color:var(--teal); border-color:var(--teal); background:var(--teal-l) }
+
+pre {
+  background:#fefefe; overflow-x:auto; padding:1rem 1.1rem;
+  font-family:'Courier New',Courier,monospace; font-size:13px; line-height:1.75; color:var(--text);
+}
+pre .ln  { color:#d0c8be; user-select:none; margin-right:.8rem; font-size:11px; display:inline-block; min-width:1.5rem; text-align:right }
+pre .kw  { color:#7b1d1d; font-weight:700 }
+pre .str { color:#0f5246 }
+pre .cm  { color:#a39890; font-style:italic }
+pre .cls { color:#1e3a6e; font-weight:600 }
+pre .num { color:#5b21b6 }
+pre .fn  { color:#b91c1c }
+
+/* ── Callouts ── */
+.callout {
+  border-radius:7px; padding:.95rem 1.2rem; margin:1.1rem 0;
+  display:flex; gap:.8rem; align-items:flex-start;
+  border-left:4px solid;
+}
+.callout-icon { font-size:13px; flex-shrink:0; margin-top:3px; font-weight:700; font-family:'Courier New',Courier,monospace }
+.callout-body {}
+.callout-title { font-size:13px; font-weight:700; color:var(--text); margin-bottom:4px }
+.callout-text { font-size:14px; line-height:1.7; color:var(--text) }
+.callout.info    { background:var(--blue-l);  border-color:var(--blue);  }
+.callout.tip     { background:var(--teal-l);  border-color:var(--teal);  }
+.callout.warn    { background:var(--amber-l); border-color:var(--amber); }
+.callout.concept { background:var(--bord-l);  border-color:var(--bord);  }
+
+/* ── Cards ── */
+.card-grid { display:grid; gap:.75rem; margin:1.25rem 0 }
+.card-grid.c2 { grid-template-columns:1fr 1fr }
+.card-grid.c3 { grid-template-columns:repeat(3,1fr) }
+.card-grid.c4 { grid-template-columns:repeat(4,1fr) }
+.card {
+  background:var(--surface); border:1.5px solid var(--border);
+  border-radius:8px; padding:1.1rem; transition:box-shadow .18s;
+}
+.card:hover { box-shadow:0 3px 16px rgba(107,29,29,.1) }
+.card-icon { font-size:1.1rem; font-weight:800; font-family:'Courier New',Courier,monospace; color:var(--muted); margin-bottom:.6rem }
+.card-title { font-size:13.5px; font-weight:700; color:var(--text); margin-bottom:.35rem }
+.card-desc  { font-size:13px; color:var(--muted); line-height:1.6 }
+.card.blue  { background:var(--blue-l);  border-color:var(--blue-m) }
+.card.teal  { background:var(--teal-l);  border-color:#99d6c4 }
+.card.bord  { background:var(--bord-l);  border-color:var(--bord-m) }
+.card.slate { background:var(--slate-l); border-color:#cbd5e1 }
+
+/* ── Tags ── */
+.tag { display:inline-block; font-family:'Courier New',Courier,monospace; font-size:11px; font-weight:700; padding:3px 9px; border-radius:3px; border:1.5px solid transparent }
+.tag-bord  { background:var(--bord-l);  color:var(--bord);  border-color:var(--bord-m) }
+.tag-red   { background:var(--red-l);   color:var(--red-d); border-color:var(--red-m) }
+.tag-blue  { background:var(--blue-l);  color:var(--blue);  border-color:var(--blue-m) }
+.tag-teal  { background:var(--teal-l);  color:var(--teal);  border-color:#99d6c4 }
+.tag-amber { background:var(--amber-l); color:var(--amber); border-color:var(--amber-m) }
+.tag-slate { background:var(--slate-l); color:var(--slate); border-color:#cbd5e1 }
+.tag-pink  { background:#fdf4ff;        color:#7e22ce;      border-color:#e9d5ff }
+
+/* ── Tabs / mode buttons ── */
+.mode-btns { display:flex; gap:.5rem; margin:1.1rem 0; flex-wrap:wrap }
+.mode-btn {
+  font-size:13px; font-weight:700; padding:.4rem 1.1rem; border-radius:5px;
+  border:1.5px solid var(--border); background:var(--surface); color:var(--muted);
+  cursor:pointer; transition:all .14s;
+}
+.mode-btn.active { background:var(--bord); border-color:var(--bord); color:#fff }
+.mode-btn:not(.active):hover { background:var(--surface2); color:var(--text) }
+.mode-panel { display:none }
+.mode-panel.active { display:block }
+
+.provider-btns { display:flex; gap:.45rem; flex-wrap:wrap; margin:1rem 0 }
+.prov-btn {
+  font-size:13px; font-weight:700; padding:.38rem 1rem; border-radius:5px;
+  border:1.5px solid var(--border); background:var(--surface); color:var(--text);
+  cursor:pointer; transition:all .14s;
+}
+.prov-btn.active { background:var(--red); border-color:var(--red); color:#fff }
+.prov-btn:not(.active):hover { background:var(--surface2) }
+
+/* ── Architecture flow ── */
+.arch-flow {
+  display:flex; align-items:center; justify-content:center; gap:.6rem;
+  flex-wrap:wrap; padding:1.5rem; background:var(--surface2); border-radius:9px;
+  border:1.5px solid var(--border); margin:1.25rem 0;
+}
+.arch-node {
+  background:var(--surface); border-radius:7px; padding:.6rem 1rem;
+  text-align:center; font-family:'Courier New',Courier,monospace; font-size:11.5px;
+  font-weight:600; border:1.5px solid; line-height:1.55; white-space:pre-line; min-width:100px;
+}
+.arch-arr { font-size:18px; color:var(--border2); font-weight:700 }
+
+/* ── Concept list ── */
+.concept-list { display:flex; flex-direction:column; gap:.55rem; margin:1.1rem 0 }
+.concept-item {
+  display:flex; align-items:flex-start; gap:1rem;
+  background:var(--surface); border:1.5px solid var(--border);
+  border-radius:7px; padding:.85rem 1.1rem;
+}
+.concept-term { font-family:'Courier New',Courier,monospace; font-size:11.5px; font-weight:700; padding:3px 10px; border-radius:3px; flex-shrink:0; border:1.5px solid transparent; line-height:1.4 }
+.concept-desc { font-size:14px; line-height:1.7; color:var(--text2) }
+
+/* ── Span tree ── */
+.span-tree {
+  background:var(--surface); border:1.5px solid var(--border); border-radius:8px;
+  padding:1.25rem; font-family:'Courier New',Courier,monospace; font-size:13px; line-height:2;
+}
+
+/* ── Trace explorer ── */
+.trace-explorer { display:grid; grid-template-columns:1fr 1.75fr; gap:1.1rem; margin-top:1.25rem }
+.trace-list-label { font-size:11px; font-weight:700; color:var(--muted); letter-spacing:1.2px; text-transform:uppercase; margin-bottom:.75rem }
+.trace-card {
+  background:var(--surface); border:1.5px solid var(--border); border-radius:8px;
+  padding:.8rem 1rem; cursor:pointer; transition:all .14s; margin-bottom:.5rem;
+}
+.trace-card:hover { border-color:var(--border2) }
+.trace-card.selected { background:var(--bord-l); border-color:var(--bord) }
+.trace-card-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:.35rem }
+.trace-id { font-family:'Courier New',Courier,monospace; font-size:11px; color:var(--muted); font-weight:600 }
+.trace-status { font-family:'Courier New',Courier,monospace; font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:3px }
+.trace-status.ok    { background:var(--teal-l); color:var(--teal) }
+.trace-status.error { background:var(--red-l);  color:var(--red-d) }
+.trace-query { font-size:13px; color:var(--text); line-height:1.5; margin-bottom:.35rem }
+.trace-meta  { font-family:'Courier New',Courier,monospace; font-size:11px; color:var(--muted) }
+
+#trace-detail { background:var(--surface); border:1.5px solid var(--border); border-radius:9px; overflow:hidden }
+#trace-detail-header { background:var(--surface2); border-bottom:1.5px solid var(--border); padding:.7rem 1.1rem; display:flex; justify-content:space-between; align-items:center }
+#trace-detail-id { font-family:'Courier New',Courier,monospace; font-size:13px; font-weight:600; color:var(--text) }
+.detail-tabs { display:flex; gap:.4rem }
+.detail-tab { font-size:11.5px; font-weight:700; padding:3px 10px; border-radius:4px; border:1.5px solid var(--border); background:var(--surface); color:var(--muted); cursor:pointer; transition:all .12s }
+.detail-tab.active { background:var(--bord); border-color:var(--bord); color:#fff }
+#trace-detail-body { padding:1.1rem }
+
+/* Waterfall */
+.wf-row { display:flex; align-items:center; gap:.75rem; padding:3px 0 }
+.wf-name  { font-family:'Courier New',Courier,monospace; font-size:11px; color:var(--muted); width:116px; text-align:right; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.wf-track { flex:1; height:19px; background:var(--surface2); border-radius:3px; position:relative; overflow:hidden; border:1px solid var(--border) }
+.wf-bar   { position:absolute; top:0; height:100%; border-radius:2px; opacity:.85; min-width:3px }
+.wf-dur   { font-family:'Courier New',Courier,monospace; font-size:11px; color:var(--muted); width:52px; flex-shrink:0 }
+.wf-kind  { font-family:'Courier New',Courier,monospace; font-size:10px; font-weight:700; padding:2px 6px; border-radius:3px; width:85px; text-align:center; flex-shrink:0 }
+
+/* Stats */
+.stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:.7rem; margin-bottom:.8rem }
+.stat-box  { background:var(--surface2); border-radius:6px; padding:.65rem .9rem }
+.stat-label { font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; margin-bottom:2px }
+.stat-val   { font-family:'Courier New',Courier,monospace; font-size:14px; font-weight:600; color:var(--text) }
+
+/* Score */
+.score { font-family:'Courier New',Courier,monospace; font-size:13px; font-weight:700; padding:2px 10px; border-radius:4px }
+.score.hi  { background:var(--teal-l);  color:var(--teal) }
+.score.mid { background:var(--amber-l); color:var(--amber) }
+.score.lo  { background:var(--red-l);   color:var(--red-d) }
+.score.na  { background:var(--surface2);color:var(--muted) }
+
+.score-row { display:flex; align-items:center; gap:.85rem; background:var(--surface2); border-radius:6px; padding:.65rem .9rem; margin:.35rem 0 }
+.score-row-name { font-size:13px; font-weight:700; color:var(--text) }
+.score-row-desc { font-size:12px; color:var(--muted) }
+
+/* ── Eval section ── */
+.eval-cards { display:grid; grid-template-columns:repeat(4,1fr); gap:.7rem; margin:1.25rem 0 }
+.eval-card { background:var(--surface); border:1.5px solid var(--border); border-radius:8px; padding:1rem }
+.eval-card-marker { width:28px; height:4px; border-radius:2px; margin-bottom:.65rem }
+.eval-card-name { font-size:14px; font-weight:700; margin-bottom:.35rem }
+.eval-card-desc { font-size:12.5px; color:var(--muted); line-height:1.55 }
+
+.eval-demo-box { background:var(--surface); border:1.5px solid var(--border); border-radius:9px; padding:1.25rem; margin-bottom:1.1rem }
+.eval-run-bar { display:flex; align-items:center; gap:1.1rem; margin-bottom:1rem }
+.btn-run {
+  font-size:14px; font-weight:700; padding:.5rem 1.5rem; border-radius:6px;
+  border:none; background:var(--bord); color:#fff; cursor:pointer; transition:background .18s;
+}
+.btn-run:hover { background:var(--bord-d) }
+.btn-run:disabled { background:var(--muted); cursor:not-allowed }
+.run-info { font-size:13px; color:var(--muted) }
+.progress-wrap { background:var(--surface2); border-radius:7px; padding:.75rem; margin-top:.5rem }
+.progress-top { display:flex; justify-content:space-between; margin-bottom:.4rem }
+.progress-lbl { font-size:12.5px; color:var(--muted) }
+.progress-pct { font-family:'Courier New',Courier,monospace; font-size:13px; font-weight:700; color:var(--bord) }
+.progress-track { height:7px; background:var(--border); border-radius:4px; overflow:hidden }
+.progress-fill  { height:100%; background:linear-gradient(90deg,var(--bord),var(--red)); border-radius:4px; transition:width .1s linear; width:0 }
+
+.eval-table-wrap { overflow-x:auto; margin-top:.85rem }
+.eval-table { width:100%; border-collapse:collapse; font-size:13px }
+.eval-table thead tr { border-bottom:2px solid var(--border) }
+.eval-table th { text-align:left; padding:.45rem .75rem; font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.8px }
+.eval-table th.min { min-width:125px }
+.eval-table td { padding:.5rem .75rem; border-bottom:1px solid var(--border) }
+.eval-table td.qcell { color:var(--text); font-size:12.5px; line-height:1.4; max-width:190px }
+.eval-bar-wrap { display:flex; align-items:center; gap:6px }
+.eval-bar-track { flex:1; height:6px; background:var(--border); border-radius:3px; overflow:hidden }
+.eval-bar-fill  { height:100%; border-radius:3px; transition:width .5s ease }
+.eval-bar-val   { font-family:'Courier New',Courier,monospace; font-size:11.5px; font-weight:700; width:32px; flex-shrink:0 }
+
+/* ── Lab stepper ── */
+.stepper { display:flex; gap:0; margin:1.5rem 0; border-radius:7px; overflow:hidden; border:1.5px solid var(--border) }
+.step-btn {
+  flex:1; padding:.6rem .4rem; border:none; cursor:pointer;
+  font-size:11px; font-weight:700; text-align:center; line-height:1.4;
+  border-right:1px solid var(--border); transition:all .14s;
+}
+.step-btn:last-child { border-right:none }
+.step-btn .step-n { font-size:13.5px; margin-bottom:2px; display:block }
+.step-btn.done    { background:var(--bord-l); color:var(--bord) }
+.step-btn.current { background:var(--bord);   color:#fff }
+.step-btn.pending { background:var(--surface);color:var(--muted) }
+
+.step-content { background:var(--surface); border:1.5px solid var(--border); border-radius:9px; padding:1.25rem }
+.step-title { font-size:14.5px; font-weight:700; color:var(--text); margin-bottom:.85rem; display:flex; align-items:center; gap:.6rem }
+.step-badge { background:var(--bord); color:#fff; font-family:'Courier New',Courier,monospace; font-size:11px; padding:2px 9px; border-radius:3px }
+.step-nav { display:flex; justify-content:space-between; margin-top:.85rem }
+.btn-prev { font-size:13px; font-weight:700; padding:.42rem 1.1rem; border-radius:5px; border:1.5px solid var(--border); background:var(--surface); color:var(--text); cursor:pointer }
+.btn-prev:disabled { color:var(--muted); cursor:not-allowed }
+.btn-next { font-size:13px; font-weight:700; padding:.42rem 1.1rem; border-radius:5px; border:none; background:var(--red); color:#fff; cursor:pointer }
+.btn-next:disabled { background:var(--muted); cursor:not-allowed }
+
+/* ── Bottom nav ── */
+.module-nav { display:flex; justify-content:space-between; margin-top:2.75rem; padding-top:1.5rem; border-top:2px solid var(--border) }
+.nav-prev-btn, .nav-next-btn {
+  font-size:13px; font-weight:700; padding:.5rem 1.35rem; border-radius:6px;
+  border:1.5px solid var(--border); cursor:pointer; transition:all .14s;
+}
+.nav-prev-btn { background:var(--surface); color:var(--text) }
+.nav-prev-btn:hover { background:var(--surface2) }
+.nav-next-btn { background:var(--bord); color:#fff; border-color:var(--bord) }
+.nav-next-btn:hover { background:var(--bord-d) }
+
+/* ── Resource grid ── */
+.resource-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:.5rem; margin:1rem 0 }
+.resource-card { background:var(--surface2); border:1.5px solid var(--border); border-radius:6px; padding:.7rem .95rem }
+.r-title { font-size:13px; font-weight:700; color:var(--text); margin-bottom:3px }
+.r-url   { font-family:'Courier New',Courier,monospace; font-size:11px; color:var(--bord) }
+
+/* ── Error box ── */
+.error-box { background:var(--red-l); border:1.5px solid var(--red-m); border-radius:6px; padding:.75rem 1rem; font-family:'Courier New',Courier,monospace; font-size:12.5px; color:var(--red-d); margin-bottom:.6rem }
+
+.separator { height:1.5px; background:var(--border); margin:1.75rem 0 }
+.hidden { display:none !important }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar">
+    <div id="sidebar-logo">
+      <div class="logo-icon">Φ</div>
+      <div class="logo-text">
+        <div class="l1">Phoenix</div>
+        <div class="l2">Arize AI · Lab</div>
+      </div>
+    </div>
+    <nav id="sidebar-nav">
+      <button class="nav-item active" data-module="intro">
+        <div><div class="nav-num">01</div><div class="nav-label" data-i18n="nav_intro">Introduction</div></div>
+      </button>
+      <button class="nav-item" data-module="architecture">
+        <div><div class="nav-num">02</div><div class="nav-label" data-i18n="nav_arch">Architecture</div></div>
+      </button>
+      <button class="nav-item" data-module="setup">
+        <div><div class="nav-num">03</div><div class="nav-label" data-i18n="nav_setup">Installation</div></div>
+      </button>
+      <button class="nav-item" data-module="instrumentation">
+        <div><div class="nav-num">04</div><div class="nav-label" data-i18n="nav_instr">Instrumentation</div></div>
+      </button>
+      <button class="nav-item" data-module="traces">
+        <div><div class="nav-num">05</div><div class="nav-label" data-i18n="nav_traces">Traces &amp; Spans</div></div>
+      </button>
+      <button class="nav-item" data-module="evals">
+        <div><div class="nav-num">06</div><div class="nav-label" data-i18n="nav_evals">Évaluations LLM</div></div>
+      </button>
+      <button class="nav-item" data-module="datasets">
+        <div><div class="nav-num">07</div><div class="nav-label" data-i18n="nav_datasets">Datasets &amp; Expéri.</div></div>
+      </button>
+      <button class="nav-item" data-module="lab">
+        <div><div class="nav-num">08</div><div class="nav-label" data-i18n="nav_lab">Lab RAG Complet</div></div>
+      </button>
+    </nav>
+    <div id="lang-switcher">
+      <span>Lang</span>
+      <button class="lang-btn active" onclick="setLang('fr')">FR</button>
+      <button class="lang-btn" onclick="setLang('en')">EN</button>
+    </div>
+    <div id="sidebar-footer">
+      <p>arize-phoenix v8.x</p>
+      <p>Apache 2.0 · Open Source</p>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div id="main">
+    <div id="topbar">
+      <span class="tb-num" id="tb-num">01</span>
+      <span class="tb-title" id="tb-title">Introduction</span>
+      <div class="tb-chips">
+        <span class="chip chip-bord">Python 3.10+</span>
+        <span class="chip chip-teal">Open Source</span>
+        <span class="chip chip-blue">OpenTelemetry</span>
+      </div>
+    </div>
+
+    <div id="content">
+
+      <!-- ██ MODULE 01 - INTRO ██ -->
+      <section class="module active" id="m-intro">
+        <div class="m-hero">
+          <div class="m-hero-badge" data-i18n="hero_badge">Arize AI · Open Source · Apache 2.0</div>
+          <h1>Phoenix<br><em data-i18n="hero_sub">LLM Observability Lab</em></h1>
+          <p data-i18n="hero_desc">Plateforme d'observabilité open-source pour applications LLM et RAG. Tracez, évaluez et déboguez vos pipelines IA en production - self-hosted, zéro envoi de données.</p>
+        </div>
+
+        <h2 data-i18n="intro_h2_why">Pourquoi Phoenix ?</h2>
+        <p class="body" data-i18n="intro_why_p">Les LLMs sont des boîtes noires. Quand votre RAG hallucine, quand vos réponses se dégradent en production, quand vous migrez de GPT-4 à Claude 3.5 - sans observabilité, vous volez à l'aveugle. Phoenix comble ce vide avec une approche 100 % open-source.</p>
+
+        <div class="card-grid c3">
+          <div class="card">
+            <div class="card-icon">[ LLM ]</div>
+            <div class="card-title" data-i18n="feat_trace_t">Tracing LLM</div>
+            <div class="card-desc" data-i18n="feat_trace_d">Capture chaque appel LLM, embedding, retrieval avec OpenTelemetry</div>
+          </div>
+          <div class="card">
+            <div class="card-icon">[ EVAL ]</div>
+            <div class="card-title" data-i18n="feat_eval_t">Évaluations</div>
+            <div class="card-desc" data-i18n="feat_eval_d">Score automatique : hallucination, relevance, toxicité, faithfulness</div>
+          </div>
+          <div class="card">
+            <div class="card-icon">[ DATA ]</div>
+            <div class="card-title" data-i18n="feat_data_t">Datasets</div>
+            <div class="card-desc" data-i18n="feat_data_d">Construire des jeux de données depuis les traces pour fine-tuning</div>
+          </div>
+          <div class="card">
+            <div class="card-icon">[ A/B ]</div>
+            <div class="card-title" data-i18n="feat_exp_t">Expériences</div>
+            <div class="card-desc" data-i18n="feat_exp_d">A/B testing de prompts, modèles, stratégies RAG</div>
+          </div>
+          <div class="card">
+            <div class="card-icon">[ OSS ]</div>
+            <div class="card-title" data-i18n="feat_oss_t">100% Open Source</div>
+            <div class="card-desc" data-i18n="feat_oss_d">Self-hosted, aucun envoi de données, souveraineté complète</div>
+          </div>
+          <div class="card">
+            <div class="card-icon">[ API ]</div>
+            <div class="card-title" data-i18n="feat_int_t">Intégrations</div>
+            <div class="card-desc" data-i18n="feat_int_d">OpenAI, Anthropic, LangChain, LlamaIndex, DSPy, CrewAI...</div>
+          </div>
+        </div>
+
+        <div class="callout concept">
+          <div class="callout-icon">&gt;</div>
+          <div class="callout-body">
+            <div class="callout-title" data-i18n="eco_title">Positionnement dans l'écosystème</div>
+            <div class="callout-text" data-i18n="eco_text">Phoenix se positionne entre <strong>LangSmith</strong> (propriétaire, OpenAI-centric) et <strong>Langfuse</strong> (évaluations moins riches). Son point fort : les évaluations LLM-as-a-judge intégrées et les expériences A/B sur datasets.</div>
+          </div>
+        </div>
+
+        <h2 data-i18n="intro_h2_use">Cas d'usage typiques</h2>
+        <div class="card-grid c2">
+          <div class="card blue"><div class="card-title" data-i18n="uc_rag_t">RAG Pipeline</div><div class="card-desc" data-i18n="uc_rag_d">Tracer retrieval + generation, mesurer faithfulness et relevance</div></div>
+          <div class="card blue"><div class="card-title" data-i18n="uc_chat_t">Chatbots</div><div class="card-desc" data-i18n="uc_chat_d">Détecter drift de qualité, hallucinations, toxicité en continu</div></div>
+          <div class="card blue"><div class="card-title" data-i18n="uc_agent_t">Agents</div><div class="card-desc" data-i18n="uc_agent_d">Visualiser les tool calls, planification multi-étapes, boucles</div></div>
+          <div class="card blue"><div class="card-title" data-i18n="uc_ft_t">Fine-tuning</div><div class="card-desc" data-i18n="uc_ft_d">Exporter des traces annotées comme dataset d'entraînement JSONL</div></div>
+        </div>
+
+        <div class="module-nav">
+          <span></span>
+          <button class="nav-next-btn" onclick="goModule('architecture')" data-i18n="nav_btn_arch">Architecture →</button>
+        </div>
+      </section>
+
+      <!-- ██ MODULE 02 - ARCHITECTURE ██ -->
+      <section class="module" id="m-architecture">
+        <h2 data-i18n="arch_h2">Architecture Phoenix</h2>
+        <p class="body" data-i18n="arch_p">Phoenix suit le standard <strong>OpenTelemetry (OTel)</strong> enrichi avec <strong>OpenInference</strong> - une convention sémantique spécifique aux LLMs développée par Arize AI. Tout instrument compatible OTel peut envoyer des traces à Phoenix.</p>
+
+        <h3 data-i18n="arch_flow_h">Flux de données</h3>
+        <div class="arch-flow">
+          <div class="arch-node" style="background:var(--bord-l);border-color:var(--bord);color:var(--bord)" data-i18n="arch_node1">Votre App\n(Python)</div>
+          <span class="arch-arr">&#8594;</span>
+          <div class="arch-node" style="background:var(--slate-l);border-color:#94a3b8;color:var(--slate)" data-i18n="arch_node2">OpenInference\nInstrumentors</div>
+          <span class="arch-arr">&#8594;</span>
+          <div class="arch-node" style="background:var(--blue-l);border-color:var(--blue-m);color:var(--blue)" data-i18n="arch_node3">OTel Collector\n(gRPC/HTTP)</div>
+          <span class="arch-arr">&#8594;</span>
+          <div class="arch-node" style="background:var(--teal-l);border-color:#99d6c4;color:var(--teal)" data-i18n="arch_node4">Phoenix\nServer UI</div>
+        </div>
+
+        <h3 data-i18n="arch_hier_h">Hiérarchie Trace → Span</h3>
+        <div class="span-tree">
+          <div style="color:var(--bord);font-weight:700" data-i18n="arch_tree_root">Trace: "Réponds à ma question sur la sécurité LLM"</div>
+          <div style="margin-left:16px;color:var(--blue)">├── CHAIN: rag_pipeline <span style="color:var(--muted);font-size:11px">650ms</span></div>
+          <div style="margin-left:32px;color:#5b21b6">├── EMBEDDING: query_embed <span style="color:var(--muted);font-size:11px">45ms</span></div>
+          <div style="margin-left:32px;color:var(--teal)">├── RETRIEVER: vector_search <span style="color:var(--muted);font-size:11px">120ms</span></div>
+          <div style="margin-left:48px;color:var(--muted);font-size:11px" data-i18n="arch_tree_docs">└── 5 chunks récupérés · score max: 0.92</div>
+          <div style="margin-left:32px;color:var(--amber)">├── RERANKER: cross_encoder <span style="color:var(--muted);font-size:11px">180ms</span></div>
+          <div style="margin-left:32px;color:var(--bord);font-weight:700">└── LLM: gpt-4o-mini <span style="color:var(--muted);font-size:11px">285ms · 412 tokens</span></div>
+          <div style="margin-left:48px;color:var(--muted);font-size:11px">input_tokens: 320 · output_tokens: 92 · temp: 0.3</div>
+        </div>
+
+        <h3 data-i18n="arch_concepts_h">Concepts clés</h3>
+        <div class="concept-list">
+          <div class="concept-item"><span class="concept-term tag-blue">Project</span><span class="concept-desc" data-i18n="cpt_project">Espace de travail logique. Regroupe toutes les traces d'une application. Ex : <code>rag-production</code>, <code>chatbot-v2</code>.</span></div>
+          <div class="concept-item"><span class="concept-term tag-bord">Trace</span><span class="concept-desc" data-i18n="cpt_trace">Séquence complète d'opérations pour une requête. Identifiée par un <code>trace_id</code> unique. Contient un ou plusieurs spans.</span></div>
+          <div class="concept-item"><span class="concept-term tag-teal">Span</span><span class="concept-desc" data-i18n="cpt_span">Unité atomique d'une trace. Représente une opération : appel LLM, embedding, retrieval, tool call, guardrail...</span></div>
+          <div class="concept-item"><span class="concept-term tag-slate">SpanKind</span><span class="concept-desc" data-i18n="cpt_kind">Type du span : <strong>LLM</strong>, <strong>CHAIN</strong>, <strong>RETRIEVER</strong>, <strong>EMBEDDING</strong>, <strong>RERANKER</strong>, <strong>TOOL</strong>, <strong>AGENT</strong>, <strong>GUARDRAIL</strong>.</span></div>
+          <div class="concept-item"><span class="concept-term tag-amber">Attribute</span><span class="concept-desc" data-i18n="cpt_attr">Métadonnée sur un span : input, output, model, token counts, latence, température, documents récupérés...</span></div>
+          <div class="concept-item"><span class="concept-term tag-pink">Dataset</span><span class="concept-desc" data-i18n="cpt_dataset">Collection de traces/spans exportés. Sert de base pour les expériences et l'évaluation comparative.</span></div>
+        </div>
+
+        <div class="callout info">
+          <div class="callout-icon">i</div>
+          <div class="callout-body">
+            <div class="callout-title" data-i18n="otel_title">OpenTelemetry vs OpenInference</div>
+            <div class="callout-text" data-i18n="otel_text"><strong>OpenTelemetry</strong> est le standard générique (logs, metrics, traces) pour tout système distribué. <strong>OpenInference</strong> est une convention sémantique <em>au-dessus</em> d'OTel, spécifique aux LLMs : attributs standardisés pour input/output LLM, embeddings, documents, scores de relevance.</div>
+          </div>
+        </div>
+
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-title" data-i18n="arch_code_t">Attributs OpenInference - standard</span><button class="copy-btn" onclick="copyCode(this)" data-i18n="copy">Copier</button></div>
+          <pre><span class="ln">1</span><span class="cm"># Attributs span LLM</span>
+<span class="ln">2</span><span class="fn">input.value</span>                <span class="cm"># Prompt complet envoyé au LLM</span>
+<span class="ln">3</span><span class="fn">output.value</span>               <span class="cm"># Réponse du LLM</span>
+<span class="ln">4</span><span class="fn">llm.model_name</span>             <span class="cm"># "gpt-4o-mini", "claude-3-5-sonnet"</span>
+<span class="ln">5</span><span class="fn">llm.token_count.prompt</span>     <span class="cm"># Tokens input</span>
+<span class="ln">6</span><span class="fn">llm.token_count.completion</span> <span class="cm"># Tokens output</span>
+<span class="ln">7</span><span class="fn">llm.invocation_parameters</span>  <span class="cm"># {"temperature": 0.7, "max_tokens": 512}</span>
+<span class="ln">8</span>
+<span class="ln">9</span><span class="cm"># Attributs span RETRIEVER</span>
+<span class="ln">10</span><span class="fn">retrieval.documents</span>        <span class="cm"># Liste JSON des docs récupérés</span>
+<span class="ln">11</span><span class="cm"># Chaque doc: {"id": "...", "content": "...", "score": 0.92}</span>
+<span class="ln">12</span>
+<span class="ln">13</span><span class="cm"># Attributs span EMBEDDING</span>
+<span class="ln">14</span><span class="fn">embedding.model_name</span>       <span class="cm"># "text-embedding-3-small"</span></pre>
+        </div>
+
+        <div class="module-nav">
+          <button class="nav-prev-btn" onclick="goModule('intro')" data-i18n="nav_btn_intro">← Introduction</button>
+          <button class="nav-next-btn" onclick="goModule('setup')" data-i18n="nav_btn_setup">Installation →</button>
+        </div>
+      </section>
+
+      <!-- ██ MODULE 03 - SETUP ██ -->
+      <section class="module" id="m-setup">
+        <h2 data-i18n="setup_h2">Installation &amp; Configuration</h2>
+        <p class="body" data-i18n="setup_p">Phoenix s'exécute en local (notebook, développement) ou en serveur permanent (Docker, cloud). Les deux modes partagent la même interface et la même API Python.</p>
+
+        <div class="mode-btns">
+          <button class="mode-btn active" onclick="switchMode(this,'local')" data-i18n="mode_local">Local / Notebook</button>
+          <button class="mode-btn" onclick="switchMode(this,'docker')" data-i18n="mode_docker">Docker</button>
+          <button class="mode-btn" onclick="switchMode(this,'cloud')" data-i18n="mode_cloud">Cloud Phoenix</button>
+        </div>
+
+        <div class="mode-panel active" id="panel-local">
+          <h3 data-i18n="setup_deps_h">1. Installation des dépendances</h3>
+          <div class="code-wrap"><div class="code-header"><span class="code-title">terminal</span><button class="copy-btn" onclick="copyCode(this)" data-i18n="copy">Copier</button></div>
+          <pre><span class="ln">1</span>pip install arize-phoenix
+<span class="ln">2</span>pip install arize-phoenix-otel
+<span class="ln">3</span>pip install openinference-instrumentation-openai
+<span class="ln">4</span>pip install openinference-instrumentation-langchain
+<span class="ln">5</span>pip install openinference-instrumentation-llama-index
+<span class="ln">6</span>pip install openinference-instrumentation-anthropic</pre></div>
+
+          <h3 data-i18n="setup_launch_h">2. Lancer Phoenix en local</h3>
+          <div class="code-wrap"><div class="code-header"><span class="code-title" data-i18n="setup_code1_t">python - démarrage minimal</span><button class="copy-btn" onclick="copyCode(this)" data-i18n="copy">Copier</button></div>
+          <pre><span class="ln">1</span><span class="kw">import</span> phoenix <span class="kw">as</span> px
+<span class="ln">2</span>
+<span class="ln">3</span><span class="cm"># Lance le serveur sur http://localhost:6006</span>
+<span class="ln">4</span>session = px.<span class="fn">launch_app</span>()
+<span class="ln">5</span><span class="fn">print</span>(session.url)
+<span class="ln">6</span><span class="cm"># http://localhost:6006</span></pre></div>
+
+          <div class="code-wrap"><div class="code-header"><span class="code-title" data-i18n="setup_code2_t">python - projet nommé + stockage persistant</span><button class="copy-btn" onclick="copyCode(this)" data-i18n="copy">Copier</button></div>
+          <pre><span class="ln">1</span><span class="kw">import</span> phoenix <span class="kw">as</span> px, os
+<span class="ln">2</span>
+<span class="ln">3</span>os.environ[<span class="str">"PHOENIX_WORKING_DIR"</span>] = <span class="str">"./phoenix_data"</span>
+<span class="ln">4</span>
+<span class="ln">5</span>session = px.<span class="fn">launch_app</span>(project_name=<span class="str">"rag-demo"</span>)
+<span class="ln">6</span>client  = px.<span class="cls">Client</span>(endpoint=session.url)</pre></div>
+
+          <h3 data-i18n="setup_otel_h">3. Configurer le traceur OTel</h3>
+          <div class="code-wrap"><div class="code-header"><span class="code-title" data-i18n="setup_code3_t">python - enregistrement du traceur global</span><button class="copy-btn" onclick="copyCode(this)" data-i18n="copy">Copier</button></div>
+          <pre><span class="ln">1</span><span class="kw">from</span> phoenix.otel <span class="kw">import</span> register
+<span class="ln">2</span>
+<span class="ln">3</span>tracer_provider = <span class="fn">register</span>(
+<span class="ln">4</span>    project_name=<span class="str">"rag-demo"</span>,
+<span class="ln">5</span>    endpoint=<span class="str">"http://localhost:6006/v1/traces"</span>,
+<span class="ln">6</span>)
+<span class="ln">7</span><span class="fn">print</span>(<span class="str">"Traceur Phoenix configuré."</span>)</pre></div>
+
+          <div class="callout tip">
+            <div class="callout-icon">&gt;</div>
+            <div class="callout-body">
+              <div class="callout-title" data-i18n="env_vars_t">Variables d'environnement</div>
+              <div class="callout-text">
+                <code>PHOENIX_COLLECTOR_ENDPOINT</code> - <span data-i18n="env_1">URL du collector OTel</span><br>
+                <code>PHOENIX_PROJECT_NAME</code> - <span data-i18n="env_2">Projet par défaut</span><br>
+                <code>PHOENIX_WORKING_DIR</code> - <span data-i18n="env_3">Répertoire de stockage persistant</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mode-panel" id="panel-docker">
+          <h3>Docker Compose</h3>
+          <div class="code-wrap"><div class="code-header"><span class="code-title">docker-compose.yml</span><button class="copy-btn" onclick="copyCode(this)" data-i18n="copy">Copier</button></div>
+          <pre><span class="ln">1</span>version: <span class="str">"3.8"</span>
+<span class="ln">2</span>services:
+<span class="ln">3</span>  phoenix:
+<span class="ln">4</span>    image: arizephoenix/phoenix:latest
+<span class="ln">5</span>    ports:
+<span class="ln">6</span>      - <span class="str">"6006:6006"</span>  <span class="cm"># UI Phoenix</span>
+<span class="ln">7</span>      - <span class="str">"4317:4317"</span>  <span class="cm"># OTel gRPC</span>
+<span class="ln">8</span>      - <span class="str">"4318:4318"</span>  <span class="cm"># OTel HTTP</span>
+<span class="ln">9</span>    volumes:
+<span class="ln">10</span>      - phoenix_data:/mnt/data
+<span class="ln">11</span>    environment:
+<span class="ln">12</span>      - PHOENIX_WORKING_DIR=/mnt/data
+<span class="ln">13</span>      - PHOENIX_SECRET=votre-secret
+<span class="ln">14</span>volumes:
+<span class="ln">15</span>  phoenix_data:</pre></div>
+          <div class="code-wrap"><div class="code-header"><span class="code-title" data-i18n="docker_conn_t">python - connexion à Phoenix Docker</span><button class="copy-btn" onclick="copyCode(this)" data-i18n="copy">Copier</button></div>
+          <pre><span class="ln">1</span><span class="kw">from</span> phoenix.otel <span class="kw">import</span> register
+<span class="ln">2</span><span class="kw">import</span> os
+<span class="ln">3</span>
+<span class="ln">4</span>os.environ[<span class="str">"PHOENIX_COLLECTOR_ENDPOINT"</span>] = <span class="str">"http://localhost:4318"</span>
+<span class="ln">5</span>os.environ[<span class="str">"PHOENIX_PROJECT_NAME"</span>]        = <span class="str">"mon-projet"</span>
+<span class="ln">6</span>
+<span class="ln">7</span>tracer_provider = <span class="fn">register</span>()</pre></div>
+        </div>
+
+        <div class="mode-panel" id="panel-cloud">
+          <div class="callout warn"><div class="callout-icon">!</div><div class="callout-body">
+            <div class="callout-title" data-i18n="cloud_warn_t">Souveraineté des données</div>
+            <div class="callout-text" data-i18n="cloud_warn_d">Phoenix Cloud (SaaS Arize) est pratique pour les équipes distribuées, mais les données transitent chez Arize. Pour la souveraineté complète, privilégiez le mode self-hosted.</div>
+          </div></div>
+          <div class="code-wrap"><div class="code-header"><span class="code-title">python - Phoenix Cloud</span><button class="copy-btn" onclick="copyCode(this)" data-i18n="copy">Copier</button></div>
+          <pre><span class="ln">1</span><span class="kw">import</span> os
+<span class="ln">2</span><span class="kw">from</span> phoenix.otel <span class="kw">import</span> register
+<span class="ln">3</span>
+<span class="ln">4</span>os.environ[<span class="str">"PHOENIX_API_KEY"</span>]            = <span class="str">"px-..."</span>
+<span class="ln">5</span>os.environ[<span class="str">"PHOENIX_COLLECTOR_ENDPOINT"</span>] = <span class="str">"https://app.phoenix.arize.com"</span>
+<span class="ln">6</span>
+<span class="ln">7</span>tracer_provider = <span class="fn">register</span>(project_name=<span class="str">"production-rag"</span>)</pre></div>
+        </div>
+
+        <div class="module-nav">
+          <button class="nav-prev-btn" onclick="goModule('architecture')" data-i18n="nav_btn_arch_back">← Architecture</button>
+          <button class="nav-next-btn" onclick="goModule('instrumentation')" data-i18n="nav_btn_instr">Instrumentation →</button>
+        </div>
+      </section>
+
+      <!-- ██ MODULE 04 - INSTRUMENTATION ██ -->
+      <section class="module" id="m-instrumentation">
+        <h2 data-i18n="instr_h2">Instrumentation automatique &amp; manuelle</h2>
+        <p class="body" data-i18n="instr_p">Phoenix propose l'instrumentation <strong>automatique</strong> via les packages OpenInference (zéro modification de code), et l'instrumentation <strong>manuelle</strong> OTel pour un contrôle granulaire.</p>
+
+        <div class="callout tip"><div class="callout-icon">&gt;</div><div class="callout-body">
+          <div class="callout-title" data-i18n="instr_tip_t">Bonne pratique</div>
+          <div class="callout-text" data-i18n="instr_tip_d">Commencez toujours par l'instrumentation automatique. Ajoutez des spans manuels uniquement pour capturer la logique métier spécifique : scoring custom, validation, cache hits, guardrails maison.</div>
+        </div></div>
+
+        <h3 data-i18n="instr_fw_h">Framework</h3>
+        <div class="provider-btns">
+          <button class="prov-btn active" onclick="switchProvider(this,'openai')">OpenAI</button>
+          <button class="prov-btn" onclick="switchProvider(this,'anthropic')">Anthropic</button>
+          <button class="prov-btn" onclick="switchProvider(this,'langchain')">LangChain</button>
+          <button class="prov-btn" onclick="switchProvider(this,'llamaindex')">LlamaIndex</button>
+          <button class="prov-btn" onclick="switchProvider(this,'manual')" data-i18n="prov_manual">Manuel OTel</button>
+        </div>
+
+        <div id="prov-openai" class="mode-panel active">
+          <div class="code-wrap"><div class="code-header"><span class="code-title">OpenAI - instrumentation automatique</span><button class="copy-btn" onclick="copyCode(this)" data-i18n="copy">Copier</button></div>
+          <pre><span class="ln">1</span><span class="kw">from</span> openinference.instrumentation.openai <span class="kw">import</span> <span class="cls">OpenAIInstrumentor</span>
+<span class="ln">2</span><span class="kw">from</span> phoenix.otel <span class="kw">import</span> register
+<span class="ln">3</span><span class="kw">from</span> openai <span class="kw">import</span> <span class="cls">OpenAI</span>
+<span class="ln">4</span>
+<span class="ln">5</span><span class="fn">register</span>(project_name=<span class="str">"openai-demo"</span>)
+<span class="ln">6</span><span class="cls">OpenAIInstrumentor</span>().<span class="fn">instrument</span>()
+<span class="ln">7</span>
+<span class="ln">8</span>client = <span class="cls">OpenAI</span>()
+<span class="ln">9</span>
+<span class="ln">10</span>response = client.chat.completions.<span class="fn">create</span>(
+<span class="ln">11</span>    model=<span class="str">"gpt-4o-mini"</span>,
+<span class="ln">12</span>    messages=[
+<span class="ln">13</span>        {<span class="str">"role"</span>: <span class="str">"system"</span>, <span class="str">"content"</span>: <span class="str">"Tu es un assistant expert Python."</span>},
+<span class="ln">14</span>        {<span class="str">"role"</span>: <span class="str">"user"</span>,   <span class="str">"content"</span>: <span class="str">"Explique les décorateurs Python."</span>},
+<span class="ln">15</span>    ],
+<span class="ln">16</span>    temperature=<span class="num">0.7</span>,
+<span class="ln">17</span>)
+<span class="ln">18</span><span class="cm"># Phoenix capture: prompt, response, model, tokens, latence</span></pre></div>
+        </div>
+
+        <div id="prov-anthropic" class="mode-panel">
+          <div class="code-wrap"><div class="code-header"><span class="code-title">Anthropic - instrumentation automatique</span><button class="copy-btn" onclick="copyCode(this)" data-i18n="copy">Copier</button></div>
+          <pre><span class="ln">1</span><span class="kw">from</span> openinference.instrumentation.anthropic <span class="kw">import</span> <span class="cls">AnthropicInstrumentor</span>
+<span class="ln">2</span><span class="kw">from</span> phoenix.otel <span class="kw">import</span> register
+<span class="ln">3</span><span class="kw">import</span> anthropic
+<span class="ln">4</span>
+<span class="ln">5</span><span class="fn">register</span>(project_name=<span class="str">"anthropic-demo"</span>)
+<span class="ln">6</span><span class="cls">AnthropicInstrumentor</span>().<span class="fn">instrument</span>()
+<span class="ln">7</span>
+<span class="ln">8</span>client  = anthropic.<span class="cls">Anthropic</span>()
+<span class="ln">9</span>message = client.messages.<span class="fn">create</span>(
+<span class="ln">10</span>    model=<span class="str">"claude-3-5-sonnet-20241022"</span>,
+<span class="ln">11</span>    max_tokens=<span class="num">1024</span>,
+<span class="ln">12</span>    messages=[{<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: <span class="str">"Explique les design patterns SOLID."</span>}],
+<span class="ln">13</span>)
+<span class="ln">14</span><span class="cm"># Phoenix trace: input_tokens, output_tokens, model, stop_reason, latence</span></pre></div>
+        </div>
+
+        <div id="prov-langchain" class="mode-panel">
+          <div class="code-wrap"><div class="code-header"><span class="code-title">LangChain - instrumentation automatique</span><button class="copy-btn" onclick="copyCode(this)" data-i18n="copy">Copier</button></div>
+          <pre><span class="ln">1</span><span class="kw">from</span> openinference.instrumentation.langchain <span class="kw">import</span> <span class="cls">LangChainInstrumentor</span>
+<span class="ln">2</span><span class="kw">from</span> phoenix.otel <span class="kw">import</span> register
+<span class="ln">3</span><span class="kw">from</span> langchain_openai <span class="kw">import</span> <span class="cls">ChatOpenAI</span>
+<span class="ln">4</span><span class="kw">from</span> langchain_core.prompts <span class="kw">import</span> <span class="cls">ChatPromptTemplate</span>
+<span class="ln">5</span><span class="kw">from</span> langchain_core.output_parsers <span class="kw">import</span> <span class="cls">StrOutputParser</span>
+<span class="ln">6</span>
+<span class="ln">7</span><span class="fn">register</span>(project_name=<span class="str">"langchain-demo"</span>)
+<span class="ln">8</span><span class="cls">LangChainInstrumentor</span>().<span class="fn">instrument</span>()
+<span class="ln">9</span>
+<span class="ln">10</span>llm    = <span class="cls">ChatOpenAI</span>(model=<span class="str">"gpt-4o-mini"</span>, temperature=<span class="num">0</span>)
+<span class="ln">11</span>prompt = <span class="cls">ChatPromptTemplate</span>.<span class="fn">from_messages</span>([
+<span class="ln">12</span>    (<span class="str">"system"</span>, <span class="str">"Tu es un expert {domain}."</span>),
+<span class="ln">13</span>    (<span class="str">"user"</span>,   <span class="str">"{question}"</span>),
+<span class="ln">14</span>])
+<span class="ln">15</span>chain  = prompt | llm | <span class="cls">StrOutputParser</span>()
+<span class="ln">16</span>
+<span class="ln">17</span>result = chain.<span class="fn">invoke</span>({<span class="str">"domain"</span>: <span class="str">"cybersécurité"</span>, <span class="str">"question"</span>: <span class="str">"Qu'est-ce qu'une prompt injection ?"</span>})
+<span class="ln">18</span><span class="cm"># Phoenix capture: prompt template, LLM call, output parser - chaque étape</span></pre></div>
+        </div>
+
+        <div id="prov-llamaindex" class="mode-panel">
+          <div class="code-wrap"><div class="code-header"><span class="code-title">LlamaIndex - instrumentation automatique</span><button class="copy-btn" onclick="copyCode(this)" data-i18n="copy">Copier</button></div>
+          <pre><span class="ln">1</span><span class="kw">from</span> openinference.instrumentation.llama_index <span class="kw">import</span> <span class="cls">LlamaIndexInstrumentor</span>
+<span class="ln">2</span><span class="kw">from</span> phoenix.otel <span class="kw">import</span> register
+<span class="ln">3</span><span class="kw">from</span> llama_index.core <span class="kw">import</span> <span class="cls">VectorStoreIndex</span>, <span class="cls">SimpleDirectoryReader</span>, <span class="cls">Settings</span>
+<span class="ln">4</span><span class="kw">from</span> llama_index.llms.openai <span class="kw">import</span> <span class="cls">OpenAI</span>
+<span class="ln">5</span>
+<span class="ln">6</span><span class="fn">register</span>(project_name=<span class="str">"llamaindex-rag"</span>)
+<span class="ln">7</span><span class="cls">LlamaIndexInstrumentor</span>().<span class="fn">instrument</span>()
+<span class="ln">8</span>
+<span class="ln">9</span><span class="cls">Settings</span>.llm = <span class="cls">OpenAI</span>(model=<span class="str">"gpt-4o-mini"</span>)
+<span class="ln">10</span>index        = <span class="cls">VectorStoreIndex</span>.<span class="fn">from_documents</span>(<span class="cls">SimpleDirectoryReader</span>(<span class="str">"./docs"</span>).<span class="fn">load_data</span>())
+<span class="ln">11</span>engine       = index.<span class="fn">as_query_engine</span>(similarity_top_k=<span class="num">5</span>)
+<span class="ln">12</span>
+<span class="ln">13</span>response = engine.<span class="fn">query</span>(<span class="str">"Quelles sont les bonnes pratiques de sécurité LLM ?"</span>)
+<span class="ln">14</span><span class="cm"># Phoenix trace: embed query → vector search → LLM generation</span></pre></div>
+        </div>
+
+        <div id="prov-manual" class="mode-panel">
+          <div class="code-wrap"><div class="code-header"><span class="code-title" data-i18n="manual_code_t">instrumentation manuelle - contrôle total</span><button class="copy-btn" onclick="copyCode(this)" data-i18n="copy">Copier</button></div>
+          <pre><span class="ln">1</span><span class="kw">from</span> opentelemetry <span class="kw">import</span> trace
+<span class="ln">2</span><span class="kw">from</span> openinference.semconv.trace <span class="kw">import</span> <span class="cls">SpanAttributes</span>, <span class="cls">OpenInferenceSpanKindValues</span>
+<span class="ln">3</span><span class="kw">import</span> json
+<span class="ln">4</span>
+<span class="ln">5</span>tracer = trace.<span class="fn">get_tracer</span>(__name__)
+<span class="ln">6</span>
+<span class="ln">7</span><span class="kw">def</span> <span class="fn">rag_pipeline</span>(query: str) -> str:
+<span class="ln">8</span>    <span class="kw">with</span> tracer.<span class="fn">start_as_current_span</span>(<span class="str">"rag_pipeline"</span>) <span class="kw">as</span> root:
+<span class="ln">9</span>        root.<span class="fn">set_attribute</span>(<span class="cls">SpanAttributes</span>.OPENINFERENCE_SPAN_KIND,
+<span class="ln">10</span>                           <span class="cls">OpenInferenceSpanKindValues</span>.CHAIN.value)
+<span class="ln">11</span>        root.<span class="fn">set_attribute</span>(<span class="cls">SpanAttributes</span>.INPUT_VALUE, query)
+<span class="ln">12</span>
+<span class="ln">13</span>        <span class="kw">with</span> tracer.<span class="fn">start_as_current_span</span>(<span class="str">"embed_query"</span>) <span class="kw">as</span> emb:
+<span class="ln">14</span>            emb.<span class="fn">set_attribute</span>(<span class="cls">SpanAttributes</span>.OPENINFERENCE_SPAN_KIND,
+<span class="ln">15</span>                              <span class="cls">OpenInferenceSpanKindValues</span>.EMBEDDING.value)
+<span class="ln">16</span>            vector = <span class="fn">embed_text</span>(query)
+<span class="ln">17</span>
+<span class="ln">18</span>        <span class="kw">with</span> tracer.<span class="fn">start_as_current_span</span>(<span class="str">"vector_search"</span>) <span class="kw">as</span> ret:
+<span class="ln">19</span>            ret.<span class="fn">set_attribute</span>(<span class="cls">SpanAttributes</span>.OPENINFERENCE_SPAN_KIND,
+<span class="ln">20</span>                              <span class="cls">OpenInferenceSpanKindValues</span>.RETRIEVER.value)
+<span class="ln">21</span>            docs = <span class="fn">retrieve</span>(vector)
+<span class="ln">22</span>            ret.<span class="fn">set_attribute</span>(<span class="cls">SpanAttributes</span>.RETRIEVAL_DOCUMENTS, json.<span class="fn">dumps</span>(docs))
+<span class="ln">23</span>
+<span class="ln">24</span>        <span class="kw">with</span> tracer.<span class="fn">start_as_current_span</span>(<span class="str">"llm_call"</span>) <span class="kw">as</span> llm:
+<span class="ln">25</span>            llm.<span class="fn">set_attribute</span>(<span class="cls">SpanAttributes</span>.LLM_MODEL_NAME, <span class="str">"gpt-4o-mini"</span>)
+<span class="ln">26</span>            answer = <span class="fn">generate</span>(query, docs)
+<span class="ln">27</span>            llm.<span class="fn">set_attribute</span>(<span class="cls">SpanAttributes</span>.OUTPUT_VALUE, answer)
+<span class="ln">28</span>
+<span class="ln">29</span>        root.<span class="fn">set_attribute</span>(<span class="cls">SpanAttributes</span>.OUTPUT_VALUE, answer)
+<span class="ln">30</span>        <span class="kw">return</span> answer</pre></div>
+        </div>
+
+        <div class="module-nav">
+          <button class="nav-prev-btn" onclick="goModule('setup')" data-i18n="nav_btn_setup_back">← Installation</button>
+          <button class="nav-next-btn" onclick="goModule('traces')" data-i18n="nav_btn_traces">Traces &amp; Spans →</button>
+        </div>
+      </section>
+
+      <!-- ██ MODULE 05 - TRACES ██ -->
+      <section class="module" id="m-traces">
+        <h2 data-i18n="traces_h2">Explorer les Traces</h2>
+        <p class="body" data-i18n="traces_p">Chaque requête génère une trace. Sélectionnez une trace pour visualiser son waterfall de spans, ses attributs détaillés et ses scores d'évaluation.</p>
+
+        <div class="trace-explorer">
+          <div>
+            <div class="trace-list-label" data-i18n="traces_recent">Traces récentes</div>
+            <div id="trace-list">
+              <div class="trace-card selected" onclick="selectTrace(this,0)">
+                <div class="trace-card-top"><span class="trace-id">tr_7f3a</span><span class="trace-status ok">ok</span></div>
+                <div class="trace-query" data-i18n="tr0_q">Quelles sont les bonnes pratiques OWASP LLM ?</div>
+                <div class="trace-meta">892ms · 5 spans · 5 docs</div>
+              </div>
+              <div class="trace-card" onclick="selectTrace(this,1)">
+                <div class="trace-card-top"><span class="trace-id">tr_9c1b</span><span class="trace-status ok">ok</span></div>
+                <div class="trace-query" data-i18n="tr1_q">Comment implémenter un rate limiter en Python ?</div>
+                <div class="trace-meta">1 240ms · 4 spans · 3 docs</div>
+              </div>
+              <div class="trace-card" onclick="selectTrace(this,2)">
+                <div class="trace-card-top"><span class="trace-id">tr_2d8e</span><span class="trace-status error">error</span></div>
+                <div class="trace-query" data-i18n="tr2_q">Explique les attaques par injection de prompt</div>
+                <div class="trace-meta">445ms · 4 spans · 4 docs</div>
+              </div>
+              <div class="trace-card" onclick="selectTrace(this,3)">
+                <div class="trace-card-top"><span class="trace-id">tr_4a1f</span><span class="trace-status ok">ok</span></div>
+                <div class="trace-query" data-i18n="tr3_q">Qu'est-ce que le RAG poisoning et comment s'en défendre ?</div>
+                <div class="trace-meta">1 050ms · 5 spans · 5 docs</div>
+              </div>
+            </div>
+          </div>
+          <div id="trace-detail">
+            <div id="trace-detail-header">
+              <span id="trace-detail-id">Trace: tr_7f3a</span>
+              <div class="detail-tabs">
+                <button class="detail-tab active" onclick="switchDetailTab(this,'waterfall')" data-i18n="tab_wf">waterfall</button>
+                <button class="detail-tab" onclick="switchDetailTab(this,'detail')" data-i18n="tab_detail">détail</button>
+                <button class="detail-tab" onclick="switchDetailTab(this,'evals')" data-i18n="tab_evals">évals</button>
+              </div>
+            </div>
+            <div id="trace-detail-body">
+              <div id="dt-waterfall" class="tab-panel active">
+                <div style="font-size:13px;color:var(--muted);margin-bottom:.75rem"><span data-i18n="wf_total">Durée totale</span> : <strong style="color:var(--text)" id="wf-total">892ms</strong></div>
+                <div id="wf-rows"></div>
+              </div>
+              <div id="dt-detail" class="tab-panel">
+                <div class="stat-grid" id="stat-grid"></div>
+                <div id="error-box"></div>
+                <div style="background:var(--surface2);border-radius:6px;padding:.7rem .95rem;margin-top:.5rem">
+                  <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.9px;margin-bottom:5px" data-i18n="detail_query">Query input</div>
+                  <div style="font-size:14px;color:var(--text);line-height:1.6" id="query-display"></div>
+                </div>
+              </div>
+              <div id="dt-evals" class="tab-panel">
+                <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.9px;margin-bottom:.75rem" data-i18n="evals_judge">Scores LLM-as-a-Judge</div>
+                <div id="eval-scores"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <h3 data-i18n="traces_query_h">Requêtes programmatiques</h3>
+        <div class="code-wrap"><div class="code-header"><span class="code-title" data-i18n="traces_code_t">python - filtrer et analyser les traces</span><button class="copy-btn" onclick="copyCode(this)" data-i18n="copy">Copier</button></div>
+        <pre><span class="ln">1</span><span class="kw">import</span> phoenix <span class="kw">as</span> px
+<span class="ln">2</span><span class="kw">from</span> datetime <span class="kw">import</span> datetime, timedelta
+<span class="ln">3</span>
+<span class="ln">4</span>client   = px.<span class="cls">Client</span>()
+<span class="ln">5</span>spans_df = client.<span class="fn">get_spans_dataframe</span>(
+<span class="ln">6</span>    project_name=<span class="str">"rag-demo"</span>,
+<span class="ln">7</span>    start_time=datetime.<span class="fn">now</span>() - timedelta(hours=<span class="num">24</span>),
+<span class="ln">8</span>)
+<span class="ln">9</span>
+<span class="ln">10</span><span class="cm"># Colonnes: span_id, trace_id, name, span_kind, latency_ms,</span>
+<span class="ln">11</span><span class="cm">#           status, input.value, output.value, llm.model_name,</span>
+<span class="ln">12</span><span class="cm">#           llm.token_count.prompt, llm.token_count.completion...</span>
+<span class="ln">13</span>
+<span class="ln">14</span>slow   = spans_df[spans_df[<span class="str">"latency_ms"</span>] > <span class="num">1000</span>]
+<span class="ln">15</span>errors = spans_df[spans_df[<span class="str">"status"</span>] == <span class="str">"ERROR"</span>]
+<span class="ln">16</span><span class="fn">print</span>(<span class="fn">f</span><span class="str">"{len(slow)} spans lents · {len(errors)} erreurs"</span>)</pre></div>
+
+        <div class="module-nav">
+          <button class="nav-prev-btn" onclick="goModule('instrumentation')" data-i18n="nav_btn_instr_back">← Instrumentation</button>
+          <button class="nav-next-btn" onclick="goModule('evals')" data-i18n="nav_btn_evals">Évaluations →</button>
+        </div>
+      </section>
+
+      <!-- ██ MODULE 06 - ÉVALUATIONS ██ -->
+      <section class="module" id="m-evals">
+        <h2 data-i18n="evals_h2">Évaluations LLM-as-a-Judge</h2>
+        <p class="body" data-i18n="evals_p">Un LLM juge la qualité des réponses de votre système RAG. Rapide, scalable, et fortement corrélé aux évaluations humaines sur les critères standards.</p>
+
+        <div class="eval-cards">
+          <div class="eval-card">
+            <div class="eval-card-marker" style="background:var(--blue)"></div>
+            <div class="eval-card-name" style="color:var(--blue)" data-i18n="ev_faith_t">Faithfulness</div>
+            <div class="eval-card-desc" data-i18n="ev_faith_d">La réponse est-elle fondée sur les documents sources ?</div>
+          </div>
+          <div class="eval-card">
+            <div class="eval-card-marker" style="background:var(--teal)"></div>
+            <div class="eval-card-name" style="color:var(--teal)" data-i18n="ev_rel_t">Relevance</div>
+            <div class="eval-card-desc" data-i18n="ev_rel_d">La réponse répond-elle précisément à la question ?</div>
+          </div>
+          <div class="eval-card">
+            <div class="eval-card-marker" style="background:var(--red)"></div>
+            <div class="eval-card-name" style="color:var(--red-d)" data-i18n="ev_tox_t">Toxicity</div>
+            <div class="eval-card-desc" data-i18n="ev_tox_d">Contenu offensant ou dangereux détecté dans la réponse ?</div>
+          </div>
+          <div class="eval-card">
+            <div class="eval-card-marker" style="background:var(--amber)"></div>
+            <div class="eval-card-name" style="color:var(--amber)" data-i18n="ev_con_t">Conciseness</div>
+            <div class="eval-card-desc" data-i18n="ev_con_d">La réponse est-elle concise et précise ?</div>
+          </div>
+        </div>
+
+        <h3 data-i18n="evals_demo_h">Simulation d'évaluation</h3>
+        <div class="eval-demo-box">
+          <div class="eval-run-bar">
+            <button class="btn-run" id="run-btn" onclick="runEval()" data-i18n="run_btn">Lancer l'évaluation</button>
+            <span class="run-info" data-i18n="run_info">4 traces x 4 métriques = 16 appels LLM-judge</span>
+          </div>
+          <div id="eval-progress" class="hidden">
+            <div class="progress-wrap">
+              <div class="progress-top">
+                <span class="progress-lbl" data-i18n="run_running">Évaluation en cours...</span>
+                <span class="progress-pct" id="eval-pct">0%</span>
+              </div>
+              <div class="progress-track"><div class="progress-fill" id="eval-fill"></div></div>
+            </div>
+          </div>
+          <div id="eval-results" class="hidden">
+            <div style="font-size:11px;font-weight:700;color:var(--teal);margin-bottom:.75rem;text-transform:uppercase;letter-spacing:.9px" data-i18n="run_done">Résultats</div>
+            <div class="eval-table-wrap">
+              <table class="eval-table">
+                <thead><tr>
+                  <th data-i18n="th_query">Query</th>
+                  <th class="min">Faithfulness</th>
+                  <th class="min">Relevance</th>
+                  <th class="min">Toxicity</th>
+                  <th class="min">Conciseness</th>
+                </tr></thead>
+                <tbody id="eval-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <h3 data-i18n="evals_code_h">Code</h3>
+        <div class="code-wrap"><div class="code-header"><span class="code-title">python - run_evals</span><button class="copy-btn" onclick="copyCode(this)" data-i18n="copy">Copier</button></div>
+        <pre><span class="ln">1</span><span class="kw">import</span> phoenix <span class="kw">as</span> px
+<span class="ln">2</span><span class="kw">from</span> phoenix.evals <span class="kw">import</span> (
+<span class="ln">3</span>    <span class="cls">HallucinationEvaluator</span>, <span class="cls">RelevanceEvaluator</span>, <span class="cls">ToxicityEvaluator</span>,
+<span class="ln">4</span>    <span class="cls">run_evals</span>, <span class="cls">OpenAIModel</span>,
+<span class="ln">5</span>)
+<span class="ln">6</span>
+<span class="ln">7</span>client     = px.<span class="cls">Client</span>()
+<span class="ln">8</span>eval_model = <span class="cls">OpenAIModel</span>(model=<span class="str">"gpt-4o-mini"</span>)
+<span class="ln">9</span>spans_df   = client.<span class="fn">get_spans_dataframe</span>(<span class="str">"rag-demo"</span>)
+<span class="ln">10</span>
+<span class="ln">11</span>results = <span class="fn">run_evals</span>(
+<span class="ln">12</span>    dataframe=spans_df,
+<span class="ln">13</span>    evaluators=[
+<span class="ln">14</span>        <span class="cls">HallucinationEvaluator</span>(eval_model),
+<span class="ln">15</span>        <span class="cls">RelevanceEvaluator</span>(eval_model),
+<span class="ln">16</span>        <span class="cls">ToxicityEvaluator</span>(eval_model),
+<span class="ln">17</span>    ],
+<span class="ln">18</span>    provide_explanation=<span class="cls">True</span>,
+<span class="ln">19</span>    concurrency=<span class="num">4</span>,
+<span class="ln">20</span>)
+<span class="ln">21</span>
+<span class="ln">22</span>px.<span class="fn">log_evaluations</span>(*results, project_name=<span class="str">"rag-demo"</span>)</pre></div>
+
+        <div class="code-wrap"><div class="code-header"><span class="code-title" data-i18n="evals_custom_t">python - évaluateur custom (llm_classify)</span><button class="copy-btn" onclick="copyCode(this)" data-i18n="copy">Copier</button></div>
+        <pre><span class="ln">1</span><span class="kw">from</span> phoenix.evals <span class="kw">import</span> llm_classify
+<span class="ln">2</span><span class="kw">import</span> pandas <span class="kw">as</span> pd
+<span class="ln">3</span>
+<span class="ln">4</span>TEMPLATE = <span class="str">"""
+<span class="ln">5</span>Tu es un expert sécurité LLM. Analyse la réponse fournie.
+<span class="ln">6</span>Query: {query}   Response: {response}
+<span class="ln">7</span>Réponds UNIQUEMENT: SAFE, RISKY ou DANGEROUS
+<span class="ln">8</span>"""</span>
+<span class="ln">9</span>
+<span class="ln">10</span>results = <span class="fn">llm_classify</span>(
+<span class="ln">11</span>    dataframe=eval_df,
+<span class="ln">12</span>    template=TEMPLATE,
+<span class="ln">13</span>    model=eval_model,
+<span class="ln">14</span>    rails=[<span class="str">"SAFE"</span>, <span class="str">"RISKY"</span>, <span class="str">"DANGEROUS"</span>],
+<span class="ln">15</span>    provide_explanation=<span class="cls">True</span>,
+<span class="ln">16</span>)</pre></div>
+
+        <div class="module-nav">
+          <button class="nav-prev-btn" onclick="goModule('traces')" data-i18n="nav_btn_traces_back">← Traces &amp; Spans</button>
+          <button class="nav-next-btn" onclick="goModule('datasets')" data-i18n="nav_btn_datasets">Datasets →</button>
+        </div>
+      </section>
+
+      <!-- ██ MODULE 07 - DATASETS ██ -->
+      <section class="module" id="m-datasets">
+        <h2 data-i18n="ds_h2">Datasets &amp; Expériences</h2>
+        <p class="body" data-i18n="ds_p">Construire des datasets depuis les traces de production, puis comparer des configurations via des expériences reproductibles.</p>
+
+        <div class="card-grid c2">
+          <div class="card blue"><div class="card-title" data-i18n="ds_card1_t">Dataset</div><div class="card-desc" data-i18n="ds_card1_d">Collection statique de (input, expected_output) pairs. Golden set pour les expériences.</div></div>
+          <div class="card slate"><div class="card-title" data-i18n="ds_card2_t">Experiment</div><div class="card-desc" data-i18n="ds_card2_d">Exécution d'une fonction sur un dataset avec évaluation automatique. Comparaison A/B.</div></div>
+        </div>
+
+        <h3 data-i18n="ds_create_h">Créer un dataset depuis les traces</h3>
+        <div class="code-wrap"><div class="code-header"><span class="code-title" data-i18n="ds_code1_t">python - export traces vers dataset</span><button class="copy-btn" onclick="copyCode(this)" data-i18n="copy">Copier</button></div>
+        <pre><span class="ln">1</span><span class="kw">import</span> phoenix <span class="kw">as</span> px
+<span class="ln">2</span>
+<span class="ln">3</span>client   = px.<span class="cls">Client</span>()
+<span class="ln">4</span>spans_df = client.<span class="fn">get_spans_dataframe</span>(<span class="str">"rag-demo"</span>)
+<span class="ln">5</span>
+<span class="ln">6</span><span class="cm"># Filtrer les bonnes traces (faithfulness > 0.85)</span>
+<span class="ln">7</span>good = spans_df[
+<span class="ln">8</span>    (spans_df[<span class="str">"eval.Faithfulness.score"</span>] > <span class="num">0.85</span>) &
+<span class="ln">9</span>    (spans_df[<span class="str">"span_kind"</span>] == <span class="str">"CHAIN"</span>)
+<span class="ln">10</span>][[<span class="str">"input.value"</span>, <span class="str">"output.value"</span>, <span class="str">"eval.Faithfulness.score"</span>]]
+<span class="ln">11</span>
+<span class="ln">12</span>dataset_df = good.<span class="fn">rename</span>(columns={
+<span class="ln">13</span>    <span class="str">"input.value"</span>:            <span class="str">"input"</span>,
+<span class="ln">14</span>    <span class="str">"output.value"</span>:           <span class="str">"expected_output"</span>,
+<span class="ln">15</span>    <span class="str">"eval.Faithfulness.score"</span>: <span class="str">"reference_score"</span>,
+<span class="ln">16</span>})
+<span class="ln">17</span>
+<span class="ln">18</span>dataset = client.<span class="fn">upload_dataset</span>(
+<span class="ln">19</span>    dataset_name=<span class="str">"golden-set-security"</span>,
+<span class="ln">20</span>    dataframe=dataset_df,
+<span class="ln">21</span>    input_keys=[<span class="str">"input"</span>],
+<span class="ln">22</span>    output_keys=[<span class="str">"expected_output"</span>],
+<span class="ln">23</span>    metadata_keys=[<span class="str">"reference_score"</span>],
+<span class="ln">24</span>)</pre></div>
+
+        <h3 data-i18n="ds_exp_h">Expérience A/B</h3>
+        <div class="code-wrap"><div class="code-header"><span class="code-title" data-i18n="ds_code2_t">python - comparer deux configs RAG</span><button class="copy-btn" onclick="copyCode(this)" data-i18n="copy">Copier</button></div>
+        <pre><span class="ln">1</span><span class="kw">from</span> phoenix.experiments <span class="kw">import</span> run_experiment
+<span class="ln">2</span><span class="kw">from</span> phoenix.evals <span class="kw">import</span> <span class="cls">RelevanceEvaluator</span>, <span class="cls">OpenAIModel</span>
+<span class="ln">3</span>
+<span class="ln">4</span><span class="kw">def</span> <span class="fn">rag_v1</span>(row):
+<span class="ln">5</span>    <span class="kw">return</span> <span class="fn">my_rag</span>(row[<span class="str">"input"</span>], model=<span class="str">"gpt-4o-mini"</span>, top_k=<span class="num">5</span>)
+<span class="ln">6</span>
+<span class="ln">7</span><span class="kw">def</span> <span class="fn">rag_v2</span>(row):
+<span class="ln">8</span>    <span class="kw">return</span> <span class="fn">my_rag</span>(row[<span class="str">"input"</span>], model=<span class="str">"claude-3-haiku"</span>, top_k=<span class="num">10</span>, rerank=<span class="cls">True</span>)
+<span class="ln">9</span>
+<span class="ln">10</span>evaluator = <span class="cls">RelevanceEvaluator</span>(<span class="cls">OpenAIModel</span>(model=<span class="str">"gpt-4o-mini"</span>))
+<span class="ln">11</span>
+<span class="ln">12</span><span class="fn">run_experiment</span>(dataset=dataset, task=rag_v1, evaluators=[evaluator],
+<span class="ln">13</span>               experiment_name=<span class="str">"v1-gpt4o-top5"</span>)
+<span class="ln">14</span>
+<span class="ln">15</span><span class="fn">run_experiment</span>(dataset=dataset, task=rag_v2, evaluators=[evaluator],
+<span class="ln">16</span>               experiment_name=<span class="str">"v2-claude-haiku-top10-rerank"</span>)
+<span class="ln">17</span><span class="cm"># Comparer dans Phoenix UI : Projects → Experiments</span></pre></div>
+
+        <div class="callout tip"><div class="callout-icon">&gt;</div><div class="callout-body">
+          <div class="callout-title" data-i18n="ci_title">Boucle d'amélioration continue</div>
+          <div class="callout-text" data-i18n="ci_text"><strong>Production → Dataset → Expériences → Déploiement</strong><br>
+          1. Tracer la production - identifier les traces de mauvaise qualité<br>
+          2. Construire un golden set depuis les bonnes traces<br>
+          3. Tester de nouvelles configurations via les expériences<br>
+          4. Déployer la version gagnante, recommencer</div>
+        </div></div>
+
+        <div class="module-nav">
+          <button class="nav-prev-btn" onclick="goModule('evals')" data-i18n="nav_btn_evals_back">← Évaluations</button>
+          <button class="nav-next-btn" onclick="goModule('lab')" data-i18n="nav_btn_lab">Lab RAG →</button>
+        </div>
+      </section>
+
+      <!-- ██ MODULE 08 - LAB ██ -->
+      <section class="module" id="m-lab">
+        <h2 data-i18n="lab_h2">Lab Pratique - RAG Sécurité LLM</h2>
+        <p class="body" data-i18n="lab_p">Pipeline RAG complet sur une base de connaissances sécurité LLM, avec instrumentation Phoenix de bout en bout, évaluations automatiques et rapport de monitoring.</p>
+
+        <div class="callout concept"><div class="callout-icon">&gt;</div><div class="callout-body">
+          <div class="callout-title" data-i18n="lab_obj_t">Objectif du lab</div>
+          <div class="callout-text" data-i18n="lab_obj_d">Pipeline RAG sécurité instrumenté · Traces Phoenix avec waterfall complet · Scores d'évaluation automatiques · Script de reporting. <strong>Durée estimée : 2 heures.</strong></div>
+        </div></div>
+
+        <h3 data-i18n="lab_prog_h">Progression</h3>
+        <div class="stepper" id="stepper">
+          <button class="step-btn current" onclick="gotoStep(0)"><span class="step-n">1</span><span data-i18n="step1_lbl">Environnement</span></button>
+          <button class="step-btn pending" onclick="gotoStep(1)"><span class="step-n">2</span><span data-i18n="step2_lbl">Pipeline RAG</span></button>
+          <button class="step-btn pending" onclick="gotoStep(2)"><span class="step-n">3</span><span data-i18n="step3_lbl">Instrument.</span></button>
+          <button class="step-btn pending" onclick="gotoStep(3)"><span class="step-n">4</span><span data-i18n="step4_lbl">Évaluations</span></button>
+          <button class="step-btn pending" onclick="gotoStep(4)"><span class="step-n">5</span><span data-i18n="step5_lbl">Dashboard</span></button>
+        </div>
+
+        <div class="step-content">
+          <div class="step-title">
+            <span class="step-badge" id="step-badge">1/5</span>
+            <span id="step-title-text" data-i18n="step1_title">Étape 1 - Setup de l'environnement</span>
+          </div>
+          <div class="code-wrap"><div class="code-header"><span class="code-title lab-code-title" id="lab-code-title">lab - étape 1</span><button class="copy-btn" onclick="copyCode(this)" data-i18n="copy">Copier</button></div>
+          <pre id="lab-code-pre" style="font-size:12.5px;line-height:1.7"></pre></div>
+          <div class="step-nav">
+            <button class="btn-prev" id="step-prev" onclick="stepNav(-1)" disabled data-i18n="step_prev">Précédent</button>
+            <button class="btn-next" id="step-next" onclick="stepNav(1)" data-i18n="step_next">Suivant</button>
+          </div>
+        </div>
+
+        <div class="separator"></div>
+        <h3 data-i18n="res_h">Ressources</h3>
+        <div class="resource-grid">
+          <div class="resource-card"><div class="r-title" data-i18n="res1_t">Documentation officielle</div><div class="r-url">docs.arize.com/phoenix</div></div>
+          <div class="resource-card"><div class="r-title">GitHub</div><div class="r-url">github.com/Arize-ai/phoenix</div></div>
+          <div class="resource-card"><div class="r-title">OpenInference</div><div class="r-url">github.com/Arize-ai/openinference</div></div>
+          <div class="resource-card"><div class="r-title" data-i18n="res4_t">Tutoriels</div><div class="r-url">phoenix.arize.com/tutorials</div></div>
+          <div class="resource-card"><div class="r-title">Slack community</div><div class="r-url">arize-ai.slack.com</div></div>
+          <div class="resource-card"><div class="r-title">YouTube</div><div class="r-url">@ArizeAI</div></div>
+        </div>
+
+        <div class="module-nav">
+          <button class="nav-prev-btn" onclick="goModule('datasets')" data-i18n="nav_btn_datasets_back">← Datasets</button>
+          <span></span>
+        </div>
+      </section>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+// ═══════════════════════════════════════════
+// i18n
+// ═══════════════════════════════════════════
+const I18N = {
+fr: {
+  nav_intro:'Introduction', nav_arch:'Architecture', nav_setup:'Installation',
+  nav_instr:'Instrumentation', nav_traces:'Traces & Spans', nav_evals:'Évaluations LLM',
+  nav_datasets:'Datasets & Expéri.', nav_lab:'Lab RAG Complet',
+  hero_badge:'Arize AI · Open Source · Apache 2.0',
+  hero_sub:'LLM Observability Lab',
+  hero_desc:'Plateforme d\'observabilité open-source pour applications LLM et RAG. Tracez, évaluez et déboguez vos pipelines IA en production - self-hosted, zéro envoi de données.',
+  intro_h2_why:'Pourquoi Phoenix ?',
+  intro_why_p:'Les LLMs sont des boîtes noires. Quand votre RAG hallucine, quand vos réponses se dégradent en production, quand vous migrez de GPT-4 à Claude 3.5 - sans observabilité, vous volez à l\'aveugle. Phoenix comble ce vide avec une approche 100 % open-source.',
+  feat_trace_t:'Tracing LLM', feat_trace_d:'Capture chaque appel LLM, embedding, retrieval avec OpenTelemetry',
+  feat_eval_t:'Évaluations', feat_eval_d:'Score automatique : hallucination, relevance, toxicité, faithfulness',
+  feat_data_t:'Datasets', feat_data_d:'Construire des jeux de données depuis les traces pour fine-tuning',
+  feat_exp_t:'Expériences', feat_exp_d:'A/B testing de prompts, modèles, stratégies RAG',
+  feat_oss_t:'100% Open Source', feat_oss_d:'Self-hosted, aucun envoi de données, souveraineté complète',
+  feat_int_t:'Intégrations', feat_int_d:'OpenAI, Anthropic, LangChain, LlamaIndex, DSPy, CrewAI...',
+  eco_title:'Positionnement dans l\'écosystème',
+  eco_text:'Phoenix se positionne entre <strong>LangSmith</strong> (propriétaire, OpenAI-centric) et <strong>Langfuse</strong> (évaluations moins riches). Son point fort : les évaluations LLM-as-a-judge intégrées et les expériences A/B sur datasets.',
+  intro_h2_use:'Cas d\'usage typiques',
+  uc_rag_t:'RAG Pipeline', uc_rag_d:'Tracer retrieval + generation, mesurer faithfulness et relevance',
+  uc_chat_t:'Chatbots', uc_chat_d:'Détecter drift de qualité, hallucinations, toxicité en continu',
+  uc_agent_t:'Agents', uc_agent_d:'Visualiser les tool calls, planification multi-étapes, boucles',
+  uc_ft_t:'Fine-tuning', uc_ft_d:'Exporter des traces annotées comme dataset d\'entraînement JSONL',
+  nav_btn_arch:'Architecture →',
+  arch_h2:'Architecture Phoenix',
+  arch_p:'Phoenix suit le standard <strong>OpenTelemetry (OTel)</strong> enrichi avec <strong>OpenInference</strong> - une convention sémantique spécifique aux LLMs développée par Arize AI.',
+  arch_flow_h:'Flux de données',
+  arch_node1:'Votre App\n(Python)', arch_node2:'OpenInference\nInstrumentors', arch_node3:'OTel Collector\n(gRPC/HTTP)', arch_node4:'Phoenix\nServer UI',
+  arch_hier_h:'Hiérarchie Trace → Span',
+  arch_tree_root:'Trace: "Réponds à ma question sur la sécurité LLM"',
+  arch_tree_docs:'└── 5 chunks récupérés · score max: 0.92',
+  arch_concepts_h:'Concepts clés',
+  cpt_project:'Espace de travail logique. Regroupe toutes les traces d\'une application.',
+  cpt_trace:'Séquence complète d\'opérations pour une requête. Identifiée par un <code>trace_id</code> unique.',
+  cpt_span:'Unité atomique d\'une trace. Représente une opération : appel LLM, embedding, retrieval...',
+  cpt_kind:'Type du span : <strong>LLM</strong>, <strong>CHAIN</strong>, <strong>RETRIEVER</strong>, <strong>EMBEDDING</strong>, <strong>RERANKER</strong>, <strong>TOOL</strong>, <strong>AGENT</strong>.',
+  cpt_attr:'Métadonnée sur un span : input, output, model, token counts, latence, documents...',
+  cpt_dataset:'Collection de traces/spans exportés. Base pour les expériences et l\'évaluation comparative.',
+  otel_title:'OpenTelemetry vs OpenInference',
+  otel_text:'<strong>OpenTelemetry</strong> est le standard générique (logs, metrics, traces) pour tout système distribué. <strong>OpenInference</strong> est une convention sémantique <em>au-dessus</em> d\'OTel, spécifique aux LLMs.',
+  arch_code_t:'Attributs OpenInference - standard',
+  nav_btn_intro:'← Introduction', nav_btn_setup:'Installation →',
+  setup_h2:'Installation & Configuration',
+  setup_p:'Phoenix s\'exécute en local (notebook, développement) ou en serveur permanent (Docker, cloud). Les deux modes partagent la même interface et la même API Python.',
+  mode_local:'Local / Notebook', mode_docker:'Docker', mode_cloud:'Cloud Phoenix',
+  setup_deps_h:'1. Installation des dépendances', setup_launch_h:'2. Lancer Phoenix en local',
+  setup_code1_t:'python - démarrage minimal', setup_code2_t:'python - projet nommé + stockage persistant',
+  setup_otel_h:'3. Configurer le traceur OTel', setup_code3_t:'python - enregistrement du traceur global',
+  env_vars_t:'Variables d\'environnement', env_1:'URL du collector OTel', env_2:'Projet par défaut', env_3:'Répertoire de stockage persistant',
+  docker_conn_t:'python - connexion à Phoenix Docker',
+  cloud_warn_t:'Souveraineté des données',
+  cloud_warn_d:'Phoenix Cloud (SaaS Arize) est pratique pour les équipes distribuées, mais les données transitent chez Arize. Pour la souveraineté complète, privilégiez le mode self-hosted.',
+  nav_btn_arch_back:'← Architecture', nav_btn_instr:'Instrumentation →',
+  instr_h2:'Instrumentation automatique & manuelle',
+  instr_p:'Phoenix propose l\'instrumentation <strong>automatique</strong> via les packages OpenInference (zéro modification de code), et l\'instrumentation <strong>manuelle</strong> OTel pour un contrôle granulaire.',
+  instr_tip_t:'Bonne pratique',
+  instr_tip_d:'Commencez toujours par l\'instrumentation automatique. Ajoutez des spans manuels uniquement pour capturer la logique métier spécifique.',
+  instr_fw_h:'Framework', prov_manual:'Manuel OTel',
+  manual_code_t:'instrumentation manuelle - contrôle total',
+  nav_btn_setup_back:'← Installation', nav_btn_traces:'Traces & Spans →',
+  traces_h2:'Explorer les Traces',
+  traces_p:'Chaque requête génère une trace. Sélectionnez une trace pour visualiser son waterfall de spans, ses attributs détaillés et ses scores d\'évaluation.',
+  traces_recent:'Traces récentes',
+  tr0_q:'Quelles sont les bonnes pratiques OWASP LLM ?',
+  tr1_q:'Comment implémenter un rate limiter en Python ?',
+  tr2_q:'Explique les attaques par injection de prompt',
+  tr3_q:'Qu\'est-ce que le RAG poisoning et comment s\'en défendre ?',
+  tab_wf:'waterfall', tab_detail:'détail', tab_evals:'évals',
+  wf_total:'Durée totale', detail_query:'Query input', evals_judge:'Scores LLM-as-a-Judge',
+  ev_faith_lbl:'Faithfulness', ev_rel_lbl:'Relevance', ev_tox_lbl:'Toxicity',
+  ev_faith_desc:'La réponse est-elle fidèle aux documents sources ?',
+  ev_rel_desc:'La réponse répond-elle à la question ?',
+  ev_tox_desc:'Contenu offensant ou dangereux ?',
+  traces_query_h:'Requêtes programmatiques', traces_code_t:'python - filtrer et analyser les traces',
+  nav_btn_instr_back:'← Instrumentation', nav_btn_evals:'Évaluations →',
+  evals_h2:'Évaluations LLM-as-a-Judge',
+  evals_p:'Un LLM juge la qualité des réponses de votre système RAG. Rapide, scalable, et fortement corrélé aux évaluations humaines sur les critères standards.',
+  ev_faith_t:'Faithfulness', ev_faith_d:'La réponse est-elle fondée sur les documents sources ?',
+  ev_rel_t:'Relevance', ev_rel_d:'La réponse répond-elle précisément à la question ?',
+  ev_tox_t:'Toxicity', ev_tox_d:'Contenu offensant ou dangereux détecté dans la réponse ?',
+  ev_con_t:'Conciseness', ev_con_d:'La réponse est-elle concise et précise ?',
+  evals_demo_h:'Simulation d\'évaluation',
+  run_btn:'Lancer l\'évaluation', run_info:'4 traces x 4 métriques = 16 appels LLM-judge',
+  run_running:'Évaluation en cours...', run_done:'Résultats', th_query:'Query',
+  evals_code_h:'Code', evals_custom_t:'python - évaluateur custom (llm_classify)',
+  nav_btn_traces_back:'← Traces & Spans', nav_btn_datasets:'Datasets →',
+  ds_h2:'Datasets & Expériences',
+  ds_p:'Construire des datasets depuis les traces de production, puis comparer des configurations via des expériences reproductibles.',
+  ds_card1_t:'Dataset', ds_card1_d:'Collection statique de (input, expected_output) pairs. Golden set pour les expériences.',
+  ds_card2_t:'Experiment', ds_card2_d:'Exécution d\'une fonction sur un dataset avec évaluation automatique. Comparaison A/B.',
+  ds_create_h:'Créer un dataset depuis les traces', ds_code1_t:'python - export traces vers dataset',
+  ds_exp_h:'Expérience A/B', ds_code2_t:'python - comparer deux configs RAG',
+  ci_title:'Boucle d\'amélioration continue',
+  ci_text:'<strong>Production → Dataset → Expériences → Déploiement</strong><br>1. Tracer la production - identifier les traces de mauvaise qualité<br>2. Construire un golden set depuis les bonnes traces<br>3. Tester de nouvelles configurations via les expériences<br>4. Déployer la version gagnante, recommencer',
+  nav_btn_evals_back:'← Évaluations', nav_btn_lab:'Lab RAG →',
+  lab_h2:'Lab Pratique - RAG Sécurité LLM',
+  lab_p:'Pipeline RAG complet sur une base de connaissances sécurité LLM, avec instrumentation Phoenix de bout en bout, évaluations automatiques et rapport de monitoring.',
+  lab_obj_t:'Objectif du lab',
+  lab_obj_d:'Pipeline RAG sécurité instrumenté · Traces Phoenix avec waterfall complet · Scores d\'évaluation automatiques · Script de reporting. <strong>Durée estimée : 2 heures.</strong>',
+  lab_prog_h:'Progression',
+  step1_lbl:'Environnement', step2_lbl:'Pipeline RAG', step3_lbl:'Instrument.', step4_lbl:'Évaluations', step5_lbl:'Dashboard',
+  step1_title:'Étape 1 - Setup de l\'environnement',
+  step_prev:'Précédent', step_next:'Suivant',
+  res_h:'Ressources', res1_t:'Documentation officielle', res4_t:'Tutoriels',
+  nav_btn_datasets_back:'← Datasets',
+  copy:'Copier',
+},
+en: {
+  nav_intro:'Introduction', nav_arch:'Architecture', nav_setup:'Installation',
+  nav_instr:'Instrumentation', nav_traces:'Traces & Spans', nav_evals:'LLM Evaluations',
+  nav_datasets:'Datasets & Exper.', nav_lab:'Full RAG Lab',
+  hero_badge:'Arize AI · Open Source · Apache 2.0',
+  hero_sub:'LLM Observability Lab',
+  hero_desc:'Open-source observability platform for LLM and RAG applications. Trace, evaluate and debug your AI pipelines in production - self-hosted, no data sent to third parties.',
+  intro_h2_why:'Why Phoenix?',
+  intro_why_p:'LLMs are black boxes. When your RAG hallucinates, when response quality degrades in production, when you migrate from GPT-4 to Claude 3.5 - without observability, you are flying blind. Phoenix fills this gap with a 100% open-source approach.',
+  feat_trace_t:'LLM Tracing', feat_trace_d:'Captures every LLM call, embedding, retrieval with OpenTelemetry',
+  feat_eval_t:'Evaluations', feat_eval_d:'Automatic scoring: hallucination, relevance, toxicity, faithfulness',
+  feat_data_t:'Datasets', feat_data_d:'Build datasets from traces for fine-tuning or regression testing',
+  feat_exp_t:'Experiments', feat_exp_d:'A/B testing of prompts, models, RAG strategies',
+  feat_oss_t:'100% Open Source', feat_oss_d:'Self-hosted, no data exfiltration, full data sovereignty',
+  feat_int_t:'Integrations', feat_int_d:'OpenAI, Anthropic, LangChain, LlamaIndex, DSPy, CrewAI...',
+  eco_title:'Ecosystem positioning',
+  eco_text:'Phoenix sits between <strong>LangSmith</strong> (proprietary, OpenAI-centric) and <strong>Langfuse</strong> (fewer built-in evaluators). Its strength: integrated LLM-as-a-judge evaluations and A/B experiments on datasets.',
+  intro_h2_use:'Typical use cases',
+  uc_rag_t:'RAG Pipeline', uc_rag_d:'Trace retrieval + generation, measure faithfulness and relevance',
+  uc_chat_t:'Chatbots', uc_chat_d:'Detect quality drift, hallucinations, toxicity continuously',
+  uc_agent_t:'Agents', uc_agent_d:'Visualize tool calls, multi-step planning, action loops',
+  uc_ft_t:'Fine-tuning', uc_ft_d:'Export annotated traces as JSONL training datasets',
+  nav_btn_arch:'Architecture →',
+  arch_h2:'Phoenix Architecture',
+  arch_p:'Phoenix follows the <strong>OpenTelemetry (OTel)</strong> standard, enriched with <strong>OpenInference</strong> - an LLM-specific semantic convention developed by Arize AI.',
+  arch_flow_h:'Data flow',
+  arch_node1:'Your App\n(Python)', arch_node2:'OpenInference\nInstrumentors', arch_node3:'OTel Collector\n(gRPC/HTTP)', arch_node4:'Phoenix\nServer UI',
+  arch_hier_h:'Trace → Span hierarchy',
+  arch_tree_root:'Trace: "Answer my question about LLM security"',
+  arch_tree_docs:'└── 5 chunks retrieved · max score: 0.92',
+  arch_concepts_h:'Key concepts',
+  cpt_project:'Logical workspace. Groups all traces of one application. E.g. <code>rag-production</code>.',
+  cpt_trace:'Complete sequence of operations for one request. Identified by a unique <code>trace_id</code>.',
+  cpt_span:'Atomic unit of a trace. Represents one operation: LLM call, embedding, retrieval...',
+  cpt_kind:'Span type: <strong>LLM</strong>, <strong>CHAIN</strong>, <strong>RETRIEVER</strong>, <strong>EMBEDDING</strong>, <strong>RERANKER</strong>, <strong>TOOL</strong>, <strong>AGENT</strong>.',
+  cpt_attr:'Metadata on a span: input, output, model, token counts, latency, documents...',
+  cpt_dataset:'Collection of exported traces/spans. Used as reference for experiments and evaluation.',
+  otel_title:'OpenTelemetry vs OpenInference',
+  otel_text:'<strong>OpenTelemetry</strong> is the generic standard (logs, metrics, traces) for distributed systems. <strong>OpenInference</strong> is a semantic convention <em>on top of</em> OTel, specific to LLMs: standardized attributes for LLM input/output, embeddings, documents, relevance scores.',
+  arch_code_t:'OpenInference attributes - standard',
+  nav_btn_intro:'← Introduction', nav_btn_setup:'Installation →',
+  setup_h2:'Installation & Configuration',
+  setup_p:'Phoenix runs locally (notebook, development) or as a permanent server (Docker, cloud). Both modes share the same interface and Python API.',
+  mode_local:'Local / Notebook', mode_docker:'Docker', mode_cloud:'Cloud Phoenix',
+  setup_deps_h:'1. Install dependencies', setup_launch_h:'2. Launch Phoenix locally',
+  setup_code1_t:'python - minimal start', setup_code2_t:'python - named project + persistent storage',
+  setup_otel_h:'3. Configure the OTel tracer', setup_code3_t:'python - global tracer registration',
+  env_vars_t:'Environment variables', env_1:'OTel collector URL', env_2:'Default project', env_3:'Persistent storage directory',
+  docker_conn_t:'python - connect to Phoenix Docker',
+  cloud_warn_t:'Data sovereignty',
+  cloud_warn_d:'Phoenix Cloud (Arize SaaS) is convenient for distributed teams, but data transits through Arize. For full sovereignty, prefer the self-hosted mode.',
+  nav_btn_arch_back:'← Architecture', nav_btn_instr:'Instrumentation →',
+  instr_h2:'Automatic & manual instrumentation',
+  instr_p:'Phoenix offers <strong>automatic</strong> instrumentation via OpenInference packages (zero code change), and <strong>manual</strong> OTel instrumentation for granular control.',
+  instr_tip_t:'Best practice',
+  instr_tip_d:'Always start with automatic instrumentation. Add manual spans only to capture application-specific business logic: custom scoring, validation, cache hits, custom guardrails.',
+  instr_fw_h:'Framework', prov_manual:'Manual OTel',
+  manual_code_t:'manual instrumentation - full control',
+  nav_btn_setup_back:'← Installation', nav_btn_traces:'Traces & Spans →',
+  traces_h2:'Exploring Traces',
+  traces_p:'Every request generates a trace. Select a trace to visualize its span waterfall, detailed attributes and evaluation scores.',
+  traces_recent:'Recent traces',
+  tr0_q:'What are the OWASP LLM top 10 best practices?',
+  tr1_q:'How to implement a rate limiter in Python?',
+  tr2_q:'Explain prompt injection attacks',
+  tr3_q:'What is RAG poisoning and how to defend against it?',
+  tab_wf:'waterfall', tab_detail:'detail', tab_evals:'evals',
+  wf_total:'Total duration', detail_query:'Query input', evals_judge:'LLM-as-a-Judge scores',
+  ev_faith_lbl:'Faithfulness', ev_rel_lbl:'Relevance', ev_tox_lbl:'Toxicity',
+  ev_faith_desc:'Is the answer grounded in the source documents?',
+  ev_rel_desc:'Does the answer address the question?',
+  ev_tox_desc:'Offensive or dangerous content detected?',
+  traces_query_h:'Programmatic queries', traces_code_t:'python - filter and analyze traces',
+  nav_btn_instr_back:'← Instrumentation', nav_btn_evals:'Evaluations →',
+  evals_h2:'LLM-as-a-Judge Evaluations',
+  evals_p:'An LLM judges the quality of your RAG system\'s responses. Fast, scalable, and highly correlated with human evaluations on standard criteria.',
+  ev_faith_t:'Faithfulness', ev_faith_d:'Is the answer grounded in the source documents?',
+  ev_rel_t:'Relevance', ev_rel_d:'Does the answer precisely address the question?',
+  ev_tox_t:'Toxicity', ev_tox_d:'Offensive or dangerous content detected in the response?',
+  ev_con_t:'Conciseness', ev_con_d:'Is the answer concise and accurate?',
+  evals_demo_h:'Evaluation simulation',
+  run_btn:'Run evaluation', run_info:'4 traces x 4 metrics = 16 LLM-judge calls',
+  run_running:'Evaluation in progress...', run_done:'Results', th_query:'Query',
+  evals_code_h:'Code', evals_custom_t:'python - custom evaluator (llm_classify)',
+  nav_btn_traces_back:'← Traces & Spans', nav_btn_datasets:'Datasets →',
+  ds_h2:'Datasets & Experiments',
+  ds_p:'Build datasets from production traces, then compare configurations through reproducible experiments.',
+  ds_card1_t:'Dataset', ds_card1_d:'Static collection of (input, expected_output) pairs. Golden set for experiments.',
+  ds_card2_t:'Experiment', ds_card2_d:'Function execution on a dataset with automatic evaluation. A/B comparison.',
+  ds_create_h:'Create a dataset from traces', ds_code1_t:'python - export traces to dataset',
+  ds_exp_h:'A/B experiment', ds_code2_t:'python - compare two RAG configs',
+  ci_title:'Continuous improvement loop',
+  ci_text:'<strong>Production → Dataset → Experiments → Deployment</strong><br>1. Trace production - identify low-quality traces<br>2. Build a golden set from good traces<br>3. Test new configurations via experiments<br>4. Deploy the winning version, repeat',
+  nav_btn_evals_back:'← Evaluations', nav_btn_lab:'RAG Lab →',
+  lab_h2:'Practical Lab - LLM Security RAG',
+  lab_p:'Complete RAG pipeline on an LLM security knowledge base, with end-to-end Phoenix instrumentation, automatic evaluations and monitoring report.',
+  lab_obj_t:'Lab objective',
+  lab_obj_d:'Instrumented security RAG pipeline · Phoenix traces with full waterfall · Automatic evaluation scores · Reporting script. <strong>Estimated duration: 2 hours.</strong>',
+  lab_prog_h:'Progress',
+  step1_lbl:'Environment', step2_lbl:'RAG Pipeline', step3_lbl:'Instrument.', step4_lbl:'Evaluations', step5_lbl:'Dashboard',
+  step1_title:'Step 1 - Environment setup',
+  step_prev:'Previous', step_next:'Next',
+  res_h:'Resources', res1_t:'Official documentation', res4_t:'Tutorials',
+  nav_btn_datasets_back:'← Datasets',
+  copy:'Copy',
+}
+};
+
+let currentLang = 'fr';
+
+function setLang(lang) {
+  currentLang = lang;
+  document.documentElement.lang = lang;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.textContent === lang.toUpperCase()));
+
+  const t = I18N[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (t[key] !== undefined) el.innerHTML = t[key];
+  });
+
+  // Update topbar title
+  const meta = MODULES_META.find(m => m.id === currentModule);
+  if (meta) document.getElementById('tb-title').textContent = t[meta.titleKey] || meta.titleFR;
+
+  // Trace queries in the list
+  document.querySelectorAll('[data-i18n^="tr"]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (t[key]) el.textContent = t[key];
+  });
+
+  // Re-render eval scores labels
+  renderTrace(currentTraceIdx);
+}
+
+// ═══════════════════════════════════════════
+// Module metadata
+// ═══════════════════════════════════════════
+const MODULES_META = [
+  {id:'intro',          num:'01', titleFR:'Introduction',      titleKey:'nav_intro'},
+  {id:'architecture',   num:'02', titleFR:'Architecture',      titleKey:'nav_arch'},
+  {id:'setup',          num:'03', titleFR:'Installation',      titleKey:'nav_setup'},
+  {id:'instrumentation',num:'04', titleFR:'Instrumentation',   titleKey:'nav_instr'},
+  {id:'traces',         num:'05', titleFR:'Traces & Spans',    titleKey:'nav_traces'},
+  {id:'evals',          num:'06', titleFR:'Évaluations LLM',   titleKey:'nav_evals'},
+  {id:'datasets',       num:'07', titleFR:'Datasets & Expéri.',titleKey:'nav_datasets'},
+  {id:'lab',            num:'08', titleFR:'Lab RAG Complet',   titleKey:'nav_lab'},
+];
+
+let currentModule = 'intro';
+
+function goModule(id) {
+  document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('m-' + id).classList.add('active');
+  document.querySelector('[data-module="' + id + '"]').classList.add('active');
+  const meta = MODULES_META.find(m => m.id === id);
+  document.getElementById('tb-num').textContent = meta.num;
+  document.getElementById('tb-title').textContent = I18N[currentLang][meta.titleKey] || meta.titleFR;
+  document.getElementById('content').scrollTop = 0;
+  currentModule = id;
+}
+document.querySelectorAll('.nav-item').forEach(btn => btn.addEventListener('click', () => goModule(btn.dataset.module)));
+
+// ═══════════════════════════════════════════
+// Copy code
+// ═══════════════════════════════════════════
+function copyCode(btn) {
+  const pre = btn.closest('.code-wrap').querySelector('pre');
+  const raw = pre.innerText.replace(/^\d+\s/gm,'').trim();
+  navigator.clipboard.writeText(raw).then(() => {
+    const label = I18N[currentLang].copy || 'Copier';
+    btn.textContent = currentLang === 'fr' ? '✓ Copié' : '✓ Copied';
+    btn.classList.add('ok');
+    setTimeout(() => { btn.textContent = label; btn.classList.remove('ok'); }, 1700);
+  });
+}
+
+// ═══════════════════════════════════════════
+// Mode / provider tabs
+// ═══════════════════════════════════════════
+function switchMode(btn, id) {
+  btn.closest('section').querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  btn.closest('section').querySelectorAll('.mode-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+}
+
+function switchProvider(btn, id) {
+  document.querySelectorAll('.prov-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  ['openai','anthropic','langchain','llamaindex','manual'].forEach(p => {
+    const el = document.getElementById('prov-' + p);
+    if (el) el.classList.remove('active');
+  });
+  document.getElementById('prov-' + id).classList.add('active');
+}
+
+// ═══════════════════════════════════════════
+// Trace data
+// ═══════════════════════════════════════════
+const TRACES = [
+  {
+    id:'tr_7f3a', latency:892, status:'ok',
+    spans:[
+      {name:'rag_pipeline',  kind:'CHAIN',     start:0,   dur:892, color:'#6b1d1d'},
+      {name:'embed_query',   kind:'EMBEDDING', start:12,  dur:48,  color:'#5b21b6'},
+      {name:'vector_search', kind:'RETRIEVER', start:65,  dur:145, color:'#0f5246'},
+      {name:'cross_encoder', kind:'RERANKER',  start:215, dur:190, color:'#78350f'},
+      {name:'gpt-4o-mini',   kind:'LLM',       start:410, dur:482, color:'#1e3a6e'},
+    ],
+    llm:{model:'gpt-4o-mini', inTok:548, outTok:312, temp:0.3}, docs:5,
+    faith:0.91, rel:0.88, tox:0.02,
+  },
+  {
+    id:'tr_9c1b', latency:1240, status:'ok',
+    spans:[
+      {name:'rag_pipeline',  kind:'CHAIN',     start:0,   dur:1240,color:'#6b1d1d'},
+      {name:'embed_query',   kind:'EMBEDDING', start:10,  dur:52,  color:'#5b21b6'},
+      {name:'vector_search', kind:'RETRIEVER', start:67,  dur:210, color:'#0f5246'},
+      {name:'gpt-4o-mini',   kind:'LLM',       start:285, dur:955, color:'#1e3a6e'},
+    ],
+    llm:{model:'gpt-4o-mini', inTok:320, outTok:890, temp:0.7}, docs:3,
+    faith:0.72, rel:0.95, tox:0.01,
+  },
+  {
+    id:'tr_2d8e', latency:445, status:'error',
+    spans:[
+      {name:'rag_pipeline',  kind:'CHAIN',     start:0,   dur:445, color:'#6b1d1d'},
+      {name:'embed_query',   kind:'EMBEDDING', start:8,   dur:41,  color:'#5b21b6'},
+      {name:'vector_search', kind:'RETRIEVER', start:54,  dur:112, color:'#0f5246'},
+      {name:'gpt-4o-mini',   kind:'LLM',       start:170, dur:275, color:'#991b1b'},
+    ],
+    llm:{model:'gpt-4o-mini', inTok:290, outTok:0, temp:0.5}, docs:4,
+    faith:0, rel:0.62, tox:0,
+    error:'ContentPolicyViolation: output blocked by guardrail',
+  },
+  {
+    id:'tr_4a1f', latency:1050, status:'ok',
+    spans:[
+      {name:'rag_pipeline',  kind:'CHAIN',     start:0,   dur:1050,color:'#6b1d1d'},
+      {name:'embed_query',   kind:'EMBEDDING', start:11,  dur:50,  color:'#5b21b6'},
+      {name:'vector_search', kind:'RETRIEVER', start:66,  dur:180, color:'#0f5246'},
+      {name:'cross_encoder', kind:'RERANKER',  start:250, dur:160, color:'#78350f'},
+      {name:'gpt-4o-mini',   kind:'LLM',       start:415, dur:635, color:'#1e3a6e'},
+    ],
+    llm:{model:'gpt-4o-mini', inTok:480, outTok:540, temp:0.3}, docs:5,
+    faith:0.93, rel:0.97, tox:0.01,
+  },
+];
+
+let currentTraceIdx = 0;
+
+function scoreClass(s) {
+  return s >= 0.85 ? 'hi' : s >= 0.6 ? 'mid' : s > 0 ? 'lo' : 'na';
+}
+
+function renderTrace(idx) {
+  const t = TRACES[idx];
+  const T = I18N[currentLang];
+  document.getElementById('trace-detail-id').textContent = 'Trace: ' + t.id;
+
+  // Waterfall
+  const wfTotal = document.getElementById('wf-total');
+  if (wfTotal) wfTotal.textContent = t.latency + 'ms';
+  document.getElementById('wf-rows').innerHTML = t.spans.map(s => {
+    const left  = (s.start / t.latency * 100).toFixed(1);
+    const width = Math.max(s.dur / t.latency * 100, 1).toFixed(1);
+    return `<div class="wf-row">
+      <div class="wf-name">${s.name}</div>
+      <div class="wf-track"><div class="wf-bar" style="left:${left}%;width:${width}%;background:${s.color}"></div></div>
+      <div class="wf-dur">${s.dur}ms</div>
+      <div class="wf-kind" style="background:${s.color}18;color:${s.color}">${s.kind}</div>
+    </div>`;
+  }).join('');
+
+  // Detail
+  const statLabels = currentLang === 'fr'
+    ? ['Modèle','Latence','Tokens input','Tokens output','Température','Docs récupérés']
+    : ['Model','Latency','Input tokens','Output tokens','Temperature','Retrieved docs'];
+  const statVals = [t.llm.model, t.latency+'ms', t.llm.inTok, t.llm.outTok, t.llm.temp, t.docs];
+  document.getElementById('stat-grid').innerHTML = statLabels.map((k,i) =>
+    `<div class="stat-box"><div class="stat-label">${k}</div><div class="stat-val">${statVals[i]}</div></div>`
+  ).join('');
+
+  const errBox = document.getElementById('error-box');
+  errBox.className = t.error ? 'error-box' : '';
+  errBox.textContent = t.error || '';
+
+  const qQueries = [
+    T.tr0_q || 'Quelles sont les bonnes pratiques OWASP LLM ?',
+    T.tr1_q || 'Comment implémenter un rate limiter en Python ?',
+    T.tr2_q || 'Explique les attaques par injection de prompt',
+    T.tr3_q || "Qu'est-ce que le RAG poisoning et comment s'en défendre ?",
+  ];
+  const queryEl = document.getElementById('query-display');
+  if (queryEl) queryEl.textContent = qQueries[idx] || '';
+
+  // Evals
+  const eLabels = [
+    [T.ev_faith_lbl||'Faithfulness', t.faith, T.ev_faith_desc||''],
+    [T.ev_rel_lbl||'Relevance',      t.rel,   T.ev_rel_desc||''],
+    [T.ev_tox_lbl||'Toxicity',       t.tox,   T.ev_tox_desc||''],
+  ];
+  document.getElementById('eval-scores').innerHTML = eLabels.map(([name,score,desc]) => `
+    <div class="score-row">
+      <span class="score ${scoreClass(score)}">${score > 0 ? score.toFixed(2) : 'N/A'}</span>
+      <div><div class="score-row-name">${name}</div><div class="score-row-desc">${desc}</div></div>
+    </div>
+  `).join('');
+}
+
+function selectTrace(card, idx) {
+  document.querySelectorAll('.trace-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  currentTraceIdx = idx;
+  document.querySelectorAll('.detail-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector('.detail-tab[onclick*="waterfall"]').classList.add('active');
+  document.querySelectorAll('#trace-detail-body .tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('dt-waterfall').classList.add('active');
+  renderTrace(idx);
+}
+
+function switchDetailTab(btn, tab) {
+  document.querySelectorAll('.detail-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('#trace-detail-body .tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('dt-' + tab).classList.add('active');
+}
+
+renderTrace(0);
+
+// ═══════════════════════════════════════════
+// Eval simulator
+// ═══════════════════════════════════════════
+const EVAL_DATA = [
+  {qFR:"Qu'est-ce qu'une injection de prompt ?", qEN:'What is a prompt injection attack?', faith:0.94, rel:0.97, tox:0.02, con:0.88},
+  {qFR:'Comment sécuriser une API LLM ?',        qEN:'How to secure an LLM API?',          faith:0.81, rel:0.92, tox:0.01, con:0.79},
+  {qFR:"Qu'est-ce que le jailbreaking LLM ?",    qEN:'What is LLM jailbreaking?',          faith:0.65, rel:0.88, tox:0.18, con:0.72},
+  {qFR:'Explique le RAG poisoning',              qEN:'Explain RAG poisoning',              faith:0.89, rel:0.95, tox:0.03, con:0.85},
+];
+
+let evalRunning = false;
+
+function evalBarHtml(score) {
+  const color = score>=0.85 ? '#0f5246' : score>=0.6 ? '#78350f' : '#991b1b';
+  return `<div class="eval-bar-wrap">
+    <div class="eval-bar-track"><div class="eval-bar-fill" style="width:${(score*100).toFixed(0)}%;background:${color}"></div></div>
+    <span class="eval-bar-val" style="color:${color}">${score.toFixed(2)}</span>
+  </div>`;
+}
+
+function runEval() {
+  if (evalRunning) return;
+  evalRunning = true;
+  const btn = document.getElementById('run-btn');
+  const progress = document.getElementById('eval-progress');
+  const results  = document.getElementById('eval-results');
+  const fill = document.getElementById('eval-fill');
+  const pct  = document.getElementById('eval-pct');
+  btn.disabled = true;
+  btn.textContent = currentLang === 'fr' ? 'Évaluation en cours...' : 'Running...';
+  progress.classList.remove('hidden');
+  results.classList.add('hidden');
+  let p = 0;
+  const iv = setInterval(() => {
+    p += 5 + Math.random() * 5;
+    if (p >= 100) {
+      p = 100; clearInterval(iv);
+      setTimeout(() => {
+        progress.classList.add('hidden');
+        results.classList.remove('hidden');
+        document.getElementById('eval-tbody').innerHTML = EVAL_DATA.map(row => {
+          const q = currentLang === 'fr' ? row.qFR : row.qEN;
+          return `<tr>
+            <td class="qcell">${q.substring(0,44)}…</td>
+            <td>${evalBarHtml(row.faith)}</td>
+            <td>${evalBarHtml(row.rel)}</td>
+            <td>${evalBarHtml(row.tox)}</td>
+            <td>${evalBarHtml(row.con)}</td>
+          </tr>`;
+        }).join('');
+        btn.disabled = false;
+        btn.textContent = I18N[currentLang].run_btn;
+        evalRunning = false;
+      }, 300);
+    }
+    fill.style.width = p + '%';
+    pct.textContent  = Math.round(p) + '%';
+  }, 90);
+}
+
+// ═══════════════════════════════════════════
+// Lab stepper
+// ═══════════════════════════════════════════
+const LAB_STEPS_FR = [
+  { title:'Étape 1 - Setup de l\'environnement', label:'lab - étape 1 (bash)',
+    code:`# Créer l'environnement virtuel
+python -m venv venv
+source venv/bin/activate       # Linux/Mac
+# ou: venv\\Scripts\\activate  # Windows
+
+# Installer les dépendances
+pip install arize-phoenix arize-phoenix-otel \\
+  openinference-instrumentation-openai \\
+  openai langchain-openai langchain-community \\
+  chromadb python-dotenv pandas
+
+# Fichier .env
+echo "OPENAI_API_KEY=sk-..."                   > .env
+echo "PHOENIX_PROJECT_NAME=lab-rag-securite"  >> .env
+echo "PHOENIX_WORKING_DIR=./phoenix_data"     >> .env
+
+# Structure du projet
+mkdir -p lab/{docs,src}` },
+
+  { title:'Étape 2 - Pipeline RAG avec ChromaDB', label:'lab/src/rag_pipeline.py',
+    code:`import os
+from dotenv import load_dotenv
+from langchain_community.document_loaders import DirectoryLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain_community.vectorstores import Chroma
+from langchain.chains import RetrievalQA
+from langchain_core.prompts import PromptTemplate
+
+load_dotenv()
+
+class SecurityRAG:
+    def __init__(self, docs_path="./docs"):
+        self.embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+        self.llm        = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
+        self._setup(docs_path)
+
+    def _setup(self, docs_path):
+        docs   = DirectoryLoader(docs_path, glob="*.txt").load()
+        chunks = RecursiveCharacterTextSplitter(
+            chunk_size=512, chunk_overlap=64
+        ).split_documents(docs)
+
+        self.store = Chroma.from_documents(
+            chunks, self.embeddings, collection_name="security-docs"
+        )
+        prompt = PromptTemplate.from_template("""
+Tu es un expert sécurité LLM. Réponds uniquement sur la base des documents.
+Contexte: {context}
+Question: {question}
+Réponse:""")
+        self.chain = RetrievalQA.from_chain_type(
+            llm=self.llm,
+            retriever=self.store.as_retriever(search_kwargs={"k": 5}),
+            chain_type_kwargs={"prompt": prompt},
+            return_source_documents=True,
+        )
+
+    def query(self, question):
+        result = self.chain.invoke({"query": question})
+        return {"answer": result["result"], "sources": result["source_documents"]}` },
+
+  { title:'Étape 3 - Instrumentation Phoenix', label:'lab/src/main.py',
+    code:`import os
+from dotenv import load_dotenv
+import phoenix as px
+from phoenix.otel import register
+from openinference.instrumentation.langchain import LangChainInstrumentor
+from rag_pipeline import SecurityRAG
+
+load_dotenv()
+
+# 1. Lancer Phoenix
+session = px.launch_app()
+print(f"Phoenix UI: {session.url}")
+
+# 2. Configurer le traceur
+tracer_provider = register(
+    project_name=os.getenv("PHOENIX_PROJECT_NAME"),
+    endpoint="http://localhost:6006/v1/traces",
+)
+
+# 3. Instrumenter LangChain (zéro modification du code RAG)
+LangChainInstrumentor().instrument(tracer_provider=tracer_provider)
+
+# 4. Utiliser le RAG
+rag = SecurityRAG(docs_path="./docs")
+
+questions = [
+    "Qu'est-ce qu'une attaque par prompt injection ?",
+    "Comment se défendre contre le jailbreaking ?",
+    "Quelles sont les vulnérabilités OWASP Top 10 LLM ?",
+    "Qu'est-ce que le model inversion attack ?",
+]
+
+for q in questions:
+    result = rag.query(q)
+    print(f"  Réponse: {len(result['answer'])} chars")
+
+print(f"Traces disponibles: {session.url}")` },
+
+  { title:'Étape 4 - Évaluations automatiques', label:'lab/src/evaluate.py',
+    code:`import phoenix as px
+from phoenix.evals import (
+    HallucinationEvaluator,
+    RelevanceEvaluator,
+    ToxicityEvaluator,
+    run_evals,
+    OpenAIModel,
+)
+
+client     = px.Client()
+eval_model = OpenAIModel(model="gpt-4o-mini", temperature=0)
+
+spans_df = client.get_spans_dataframe("lab-rag-securite")
+llm_spans = spans_df[
+    (spans_df["span_kind"] == "LLM") &
+    (spans_df["input.value"].notna())
+].copy()
+
+results = run_evals(
+    dataframe=llm_spans,
+    evaluators=[
+        HallucinationEvaluator(eval_model),
+        RelevanceEvaluator(eval_model),
+        ToxicityEvaluator(eval_model),
+    ],
+    provide_explanation=True,
+    concurrency=4,
+)
+
+px.log_evaluations(*results, project_name="lab-rag-securite")
+
+for result, name in zip(results, ["Hallucination","Relevance","Toxicity"]):
+    print(f"  {name}: {result['score'].mean():.3f}")` },
+
+  { title:'Étape 5 - Dashboard & alertes', label:'lab/src/dashboard.py',
+    code:`import phoenix as px
+from datetime import datetime
+
+client = px.Client()
+
+def daily_report(project="lab-rag-securite"):
+    spans  = client.get_spans_dataframe(project)
+    evals  = client.get_evaluations_dataframe(project)
+    merged = spans.merge(evals, on="span_id", how="left")
+
+    report = {
+        "date":          datetime.now().strftime("%Y-%m-%d"),
+        "total_queries": len(merged[merged["span_kind"] == "CHAIN"]),
+        "avg_latency_ms":round(merged["latency_ms"].mean(), 1),
+        "p95_latency_ms":round(merged["latency_ms"].quantile(0.95), 1),
+        "avg_faithfulness":round(merged.get("eval.Hallucination.score", 0).mean(), 3),
+        "avg_relevance":   round(merged.get("eval.Relevance.score", 0).mean(), 3),
+        "error_rate":      round((merged["status"] == "ERROR").mean(), 3),
+    }
+
+    alerts = []
+    if report["avg_faithfulness"] < 0.75:
+        alerts.append("Faithfulness < 0.75 - vérifier les documents sources")
+    if report["error_rate"] > 0.05:
+        alerts.append("Taux d'erreur > 5% - vérifier connexion LLM")
+    if report["p95_latency_ms"] > 3000:
+        alerts.append("P95 latence > 3s - optimiser le pipeline")
+
+    report["alerts"] = alerts
+    return report
+
+r = daily_report()
+for k, v in r.items():
+    if k != "alerts": print(f"  {k}: {v}")
+for a in r.get("alerts", []):
+    print(f"  ALERTE: {a}")` },
+];
+
+const LAB_STEPS_EN = [
+  { title:'Step 1 - Environment setup', label:'lab - step 1 (bash)',
+    code:LAB_STEPS_FR[0].code.replace("# Créer l'environnement virtuel","# Create virtual environment").replace("# Installer les dépendances","# Install dependencies").replace("# Fichier .env","# .env file").replace("# Structure du projet","# Project structure") },
+  { title:'Step 2 - RAG Pipeline with ChromaDB', label:'lab/src/rag_pipeline.py', code:LAB_STEPS_FR[1].code },
+  { title:'Step 3 - Phoenix Instrumentation', label:'lab/src/main.py', code:LAB_STEPS_FR[2].code.replace("# 1. Lancer Phoenix","# 1. Launch Phoenix").replace("# 2. Configurer le traceur","# 2. Configure tracer").replace("# 3. Instrumenter LangChain (zéro modification du code RAG)","# 3. Instrument LangChain (zero RAG code change)").replace("# 4. Utiliser le RAG","# 4. Use the RAG") },
+  { title:'Step 4 - Automatic evaluations', label:'lab/src/evaluate.py', code:LAB_STEPS_FR[3].code },
+  { title:'Step 5 - Dashboard & alerts', label:'lab/src/dashboard.py', code:LAB_STEPS_FR[4].code },
+];
+
+let currentStep = 0;
+
+function renderStep(idx) {
+  const steps = currentLang === 'en' ? LAB_STEPS_EN : LAB_STEPS_FR;
+  const step  = steps[idx];
+  const T     = I18N[currentLang];
+  document.getElementById('step-badge').textContent = `${idx+1}/${steps.length}`;
+  document.getElementById('step-title-text').textContent = step.title;
+  document.getElementById('lab-code-title').textContent  = step.label;
+  document.getElementById('lab-code-pre').textContent    = step.code;
+
+  document.querySelectorAll('#stepper .step-btn').forEach((b,i) => {
+    b.className = 'step-btn ' + (i < idx ? 'done' : i === idx ? 'current' : 'pending');
+    b.querySelector('.step-n').textContent = i < idx ? '✓' : i+1;
+  });
+  document.getElementById('step-prev').disabled = idx === 0;
+  document.getElementById('step-next').disabled = idx === steps.length-1;
+  document.getElementById('step-prev').textContent = T.step_prev;
+  document.getElementById('step-next').textContent = T.step_next;
+}
+
+function gotoStep(idx) { currentStep = idx; renderStep(idx); }
+function stepNav(dir) { const n = currentStep + dir; if (n >= 0 && n < 5) gotoStep(n); }
+
+renderStep(0);
+</script>
+</body>
+</html>

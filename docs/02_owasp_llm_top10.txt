@@ -1,0 +1,50 @@
+# OWASP Top 10 pour les LLM (2024)
+
+## LLM01 : Prompt Injection
+Injection d'instructions malveillantes pour détourner le comportement du LLM.
+Risque : critique. Contre-mesures : validation entrées, séparation des rôles, monitoring.
+
+## LLM02 : Insecure Output Handling
+Le LLM génère une sortie non validée qui est exécutée en aval (XSS, SSRF, RCE).
+Risque : élevé. Contre-mesures : sanitisation des sorties, validation contextuelle.
+
+## LLM03 : Training Data Poisoning
+Contamination des données d'entraînement pour créer des backdoors ou biais.
+Risque : élevé. Contre-mesures : provenance des données, détection d'anomalies, red-teaming.
+
+## LLM04 : Model Denial of Service
+Requêtes conçues pour consommer excessivement les ressources (tokens, compute).
+Risque : moyen. Contre-mesures : rate limiting, max_tokens, timeouts, quotas par utilisateur.
+
+## LLM05 : Supply Chain Vulnerabilities
+Dépendances LLM compromises : modèles pré-entraînés, plugins, intégrations tierces.
+Risque : élevé. Contre-mesures : audit des dépendances, signature des modèles, SBOM.
+
+## LLM06 : Sensitive Information Disclosure
+Le LLM révèle des données sensibles : PII, secrets, données d'entraînement propriétaires.
+Risque : élevé. Contre-mesures : PII detection, output filtering, data minimisation.
+
+## LLM07 : Insecure Plugin Design
+Plugins LLM avec trop de permissions ou sans validation des entrées/sorties.
+Risque : élevé. Contre-mesures : principe du moindre privilège, validation stricte, sandboxing.
+
+## LLM08 : Excessive Agency
+Le LLM dispose de trop d'autonomie ou de permissions dans les systèmes connectés.
+Risque : critique. Contre-mesures : approbation humaine, limiter les permissions, audit trail.
+
+## LLM09 : Overreliance
+Confiance excessive dans les sorties LLM sans vérification humaine.
+Risque : moyen. Contre-mesures : human-in-the-loop, incertitude explicite, disclaimers.
+
+## LLM10 : Model Theft
+Vol du modèle via extraction par API ou accès non autorisé aux poids.
+Risque : moyen. Contre-mesures : rate limiting, watermarking, chiffrement des poids.
+
+## Priorités d'implémentation
+
+Pour une application RAG en production, prioriser dans l'ordre :
+1. LLM01 (prompt injection) — risque le plus immédiat
+2. LLM06 (disclosure) — protéger les données sensibles des utilisateurs
+3. LLM02 (output handling) — surtout si les sorties alimentent d'autres systèmes
+4. LLM04 (DoS) — prévenir les abus de coût et disponibilité
+5. LLM08 (excessive agency) — critique pour les agents autonomes

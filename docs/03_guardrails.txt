@@ -1,0 +1,93 @@
+# Guardrails LLM — Architecture et implémentation
+
+## Définition
+Les guardrails sont des mécanismes de contrôle qui encadrent le comportement d'un LLM.
+Ils opèrent en entrée (filtrage des requêtes), en sortie (validation des réponses), ou aux deux.
+
+## Architecture en couches
+
+```
+Requête utilisateur
+        |
+   [Input Guard]      <- Détection injection, PII, intention malveillante
+        |
+  [System Prompt]     <- Instructions et contraintes du LLM
+        |
+      [LLM]           <- Génération
+        |
+  [Output Guard]      <- Validation, filtrage, post-traitement
+        |
+  Réponse finale
+```
+
+## Types de guardrails
+
+### Guardrails d'entrée
+- **Intent classifier** : détecte les requêtes hors périmètre
+- **PII detector** : identifie et masque les données personnelles
+- **Injection detector** : détecte les tentatives de prompt injection
+- **Rate limiter** : limite les requêtes par utilisateur/IP
+
+### Guardrails de sortie
+- **Toxicity filter** : filtre les contenus offensants
+- **Hallucination detector** : vérifie la cohérence avec les sources
+- **Secret detector** : empêche l'exfiltration de secrets/credentials
+- **Format validator** : valide le format de sortie attendu
+
+## Implémentation avec LangChain + Phoenix
+
+```python
+from langchain_core.runnables import RunnablePassthrough, RunnableLambda
+from opentelemetry import trace
+
+tracer = trace.get_tracer(__name__)
+
+def input_guard(inputs: dict) -> dict:
+    with tracer.start_as_current_span("input_guard") as span:
+        query = inputs["query"]
+        
+        # Détection de patterns d'injection
+        injection_patterns = [
+            "ignore previous", "system prompt", "jailbreak",
+            "ignore instructions", "act as DAN"
+        ]
+        
+        for pattern in injection_patterns:
+            if pattern.lower() in query.lower():
+                span.set_attribute("guard.triggered", True)
+                span.set_attribute("guard.pattern", pattern)
+                raise ValueError(f"Requête bloquée: pattern suspect détecté")
+        
+        span.set_attribute("guard.triggered", False)
+        return inputs
+
+def output_guard(output: str) -> str:
+    with tracer.start_as_current_span("output_guard") as span:
+        # Vérification longueur minimale
+        if len(output.strip()) < 10:
+            span.set_attribute("guard.empty_output", True)
+            return "Je n'ai pas pu générer une réponse satisfaisante."
+        
+        # Détection de secrets (patterns basiques)
+        import re
+        if re.search(r'(sk-[a-zA-Z0-9]{20,}|Bearer [a-zA-Z0-9]+)', output):
+            span.set_attribute("guard.secret_leak", True)
+            return "[Contenu filtré: données sensibles détectées]"
+        
+        span.set_attribute("guard.passed", True)
+        return output
+
+# Intégration dans la chaîne RAG
+chain = (
+    RunnableLambda(input_guard)
+    | rag_chain
+    | RunnablePassthrough.assign(answer=lambda x: output_guard(x["answer"]))
+)
+```
+
+## Monitoring des guardrails avec Phoenix
+
+Les spans de guardrail sont automatiquement capturés. Dans Phoenix UI :
+- Filtrer les spans avec `guard.triggered = True` pour analyser les tentatives
+- Créer des datasets depuis les faux positifs pour améliorer les classificateurs
+- Mesurer le taux de déclenchement par guardrail pour détecter les abus
